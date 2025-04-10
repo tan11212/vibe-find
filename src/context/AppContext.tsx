@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { mockPGs, mockRoommates, roommateQuestions } from '@/data/mockData';
 import { PG, PGFilter, QuestionnaireAnswer, RoommateProfile } from '@/types';
@@ -14,14 +13,14 @@ interface AppContextType {
   roommates: RoommateProfile[];
   roommateAnswers: QuestionnaireAnswer[];
   userRoommateProfile: Partial<RoommateProfile> | null;
-  lookingFor: 'room-and-roommate' | 'just-roommate' | null;
+  lookingFor: 'room-and-roommate' | 'just-roommate' | 'pg-owner' | null;
   // Functions
   toggleFavorite: (pgId: string) => void;
   toggleFollowPG: (pgId: string) => void;
   updateFilters: (newFilters: PGFilter) => void;
   addRoommateAnswer: (questionId: string, answer: string) => void;
   updateUserProfile: (profile: Partial<RoommateProfile>) => void;
-  setLookingForOption: (option: 'room-and-roommate' | 'just-roommate') => void;
+  setLookingForOption: (option: 'room-and-roommate' | 'just-roommate' | 'pg-owner') => void;
 }
 
 const defaultFilters: PGFilter = {
@@ -45,7 +44,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [roommates, setRoommates] = useState<RoommateProfile[]>(mockRoommates);
   const [roommateAnswers, setRoommateAnswers] = useState<QuestionnaireAnswer[]>([]);
   const [userRoommateProfile, setUserRoommateProfile] = useState<Partial<RoommateProfile> | null>(null);
-  const [lookingFor, setLookingFor] = useState<'room-and-roommate' | 'just-roommate' | null>(null);
+  const [lookingFor, setLookingFor] = useState<'room-and-roommate' | 'just-roommate' | 'pg-owner' | null>(null);
   
   // Update filtered PGs when filters change
   useEffect(() => {
@@ -173,9 +172,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   
   // Set looking for option
-  const setLookingForOption = (option: 'room-and-roommate' | 'just-roommate') => {
+  const setLookingForOption = (option: 'room-and-roommate' | 'just-roommate' | 'pg-owner') => {
     setLookingFor(option);
-    updateUserProfile({ lookingFor: option });
+    if (option !== 'pg-owner') {
+      updateUserProfile({ lookingFor: option as 'room-and-roommate' | 'just-roommate' });
+    }
   };
   
   return (

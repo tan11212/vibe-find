@@ -95,3 +95,18 @@ export interface RoommateProfile {
   sharedTraits?: string[];
   image?: string;
 }
+
+// For PG Owner Listing
+export interface PGListing {
+  id: string;
+  name: string;
+  address: string;
+  gender: 'male' | 'female' | 'co-ed';
+  description: string;
+  totalBeds: number;
+  availableBeds: number;
+  price: number;
+  amenities: string[];
+  ownerId: string;
+  createdAt: Date;
+}

@@ -1,13 +1,15 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import RoommateCard from '@/components/RoommateCard';
 import { useApp } from '@/context/AppContext';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 const RoommateFinder = () => {
+  const navigate = useNavigate();
   const { roommates, lookingFor, setLookingForOption } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -18,6 +20,10 @@ const RoommateFinder = () => {
           roommate.occupation.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : roommates;
+  
+  const handleTakeQuestionnaire = () => {
+    navigate('/roommate-questionnaire');
+  };
   
   return (
     <Layout>
@@ -30,7 +36,7 @@ const RoommateFinder = () => {
           
           <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
             <h2 className="font-medium text-lg mb-3">What are you looking for?</h2>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <Button
                 variant={lookingFor === 'just-roommate' ? 'default' : 'outline'}
                 className={lookingFor === 'just-roommate' ? 'bg-appPurple hover:bg-appPurple-dark' : ''}
@@ -44,6 +50,16 @@ const RoommateFinder = () => {
                 onClick={() => setLookingForOption('room-and-roommate')}
               >
                 I need room & roommate
+              </Button>
+              <Button
+                variant={lookingFor === 'pg-owner' ? 'default' : 'outline'}
+                className={lookingFor === 'pg-owner' ? 'bg-appPurple hover:bg-appPurple-dark' : ''}
+                onClick={() => {
+                  setLookingForOption('pg-owner');
+                  navigate('/pg-owner-listing');
+                }}
+              >
+                I'm a PG owner, want to list my property
               </Button>
             </div>
           </div>
@@ -71,28 +87,45 @@ const RoommateFinder = () => {
           
           {lookingFor ? (
             <>
-              <div className="mb-2">
-                <Button 
-                  className="w-full bg-appPurple hover:bg-appPurple-dark"
-                  onClick={() => console.log('Take questionnaire')}
-                >
-                  {lookingFor === 'just-roommate' 
-                    ? 'Create your listing & take questionnaire' 
-                    : 'Take roommate compatibility questionnaire'}
-                </Button>
-              </div>
+              {lookingFor !== 'pg-owner' && (
+                <div className="mb-2">
+                  <Button 
+                    className="w-full bg-appPurple hover:bg-appPurple-dark"
+                    onClick={handleTakeQuestionnaire}
+                  >
+                    {lookingFor === 'just-roommate' 
+                      ? 'Create your listing & take questionnaire' 
+                      : 'Take roommate compatibility questionnaire'}
+                  </Button>
+                </div>
+              )}
               
-              {filteredRoommates.length === 0 ? (
+              {lookingFor !== 'pg-owner' && filteredRoommates.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-2">😕</div>
                   <h3 className="text-lg font-medium">No roommates found</h3>
                   <p className="text-gray-600">Try adjusting your search</p>
                 </div>
-              ) : (
+              ) : lookingFor !== 'pg-owner' ? (
                 <div>
                   {filteredRoommates.map(roommate => (
                     <RoommateCard key={roommate.id} roommate={roommate} />
                   ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-white rounded-xl shadow-lg">
+                  <div className="text-4xl mb-2">🏠</div>
+                  <h3 className="text-lg font-medium">List Your PG Property</h3>
+                  <p className="text-gray-600 mb-4 px-4">
+                    Create a detailed listing for your PG to find the perfect tenants
+                  </p>
+                  <Button 
+                    className="bg-appPurple hover:bg-appPurple-dark"
+                    onClick={() => navigate('/pg-owner-listing')}
+                  >
+                    <Plus size={16} className="mr-1" />
+                    Create New Listing
+                  </Button>
                 </div>
               )}
             </>
@@ -101,7 +134,7 @@ const RoommateFinder = () => {
               <div className="text-4xl mb-2">👋</div>
               <h3 className="text-lg font-medium">Select an Option Above</h3>
               <p className="text-gray-600 px-4">
-                Let us know whether you already have a room or need both a room and roommate
+                Let us know whether you're looking for a roommate, need both a room and roommate, or want to list your PG property
               </p>
             </div>
           )}

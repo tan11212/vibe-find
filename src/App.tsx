@@ -13,6 +13,7 @@ import RoommateDetail from "./pages/RoommateDetail";
 import Favorites from "./pages/Favorites";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import PGOwnerListing from "./pages/PGOwnerListing";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/roommate/:id" element={<RoommateDetail />} />
             <Route path="/favorites" element={<Favorites />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/pg-owner-listing" element={<PGOwnerListing />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
