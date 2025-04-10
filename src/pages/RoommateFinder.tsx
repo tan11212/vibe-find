@@ -39,6 +39,12 @@ const RoommateFinder = () => {
             <div className="grid grid-cols-1 gap-2">
               <div className="grid grid-cols-2 gap-2">
                 <Button
+                  variant="outline"
+                  onClick={() => navigate('/')}
+                >
+                  Find PG
+                </Button>
+                <Button
                   variant={lookingFor === 'pg-owner' ? 'default' : 'outline'}
                   className={lookingFor === 'pg-owner' ? 'bg-appPurple hover:bg-appPurple-dark' : ''}
                   onClick={() => {
@@ -47,12 +53,6 @@ const RoommateFinder = () => {
                   }}
                 >
                   List Your PG
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/')}
-                >
-                  Find PG
                 </Button>
               </div>
               <Button

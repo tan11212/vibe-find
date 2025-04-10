@@ -80,7 +80,7 @@ export interface Question {
 export interface QuestionnaireAnswer {
   questionId: string;
   answer: string;
-  isPublic: boolean; // New field to track privacy setting
+  isPublic: boolean; // Required field for privacy setting
 }
 
 export interface ChatMessage {
@@ -128,4 +128,13 @@ export interface PGListing {
   amenities: string[];
   ownerId: string;
   createdAt: Date;
+}
+
+// Emergency Safety Feature
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: string;
+  isEmergencyContact: boolean;
 }
