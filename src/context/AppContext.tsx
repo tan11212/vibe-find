@@ -1,6 +1,7 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { mockPGs, mockRoommates, roommateQuestions } from '@/data/mockData';
-import { PG, PGFilter, QuestionnaireAnswer, RoommateProfile } from '@/types';
+import { PG, PGFilter, QuestionnaireAnswer, RoommateProfile, ChatMessage, RoommateMatch } from '@/types';
 
 interface AppContextType {
   // PG state
@@ -14,6 +15,8 @@ interface AppContextType {
   roommateAnswers: QuestionnaireAnswer[];
   userRoommateProfile: Partial<RoommateProfile> | null;
   lookingFor: 'room-and-roommate' | 'just-roommate' | 'pg-owner' | null;
+  chatMessages: ChatMessage[];
+  roommateMatches: RoommateMatch[];
   // Functions
   toggleFavorite: (pgId: string) => void;
   toggleFollowPG: (pgId: string) => void;
@@ -21,6 +24,10 @@ interface AppContextType {
   addRoommateAnswer: (questionId: string, answer: string) => void;
   updateUserProfile: (profile: Partial<RoommateProfile>) => void;
   setLookingForOption: (option: 'room-and-roommate' | 'just-roommate' | 'pg-owner') => void;
+  requestRoommateMatch: (roommateId: string) => void;
+  respondToMatchRequest: (matchId: string, accept: boolean) => void;
+  startChat: (roommateId: string) => void;
+  sendChatMessage: (receiverId: string, message: string) => void;
 }
 
 const defaultFilters: PGFilter = {
@@ -45,6 +52,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [roommateAnswers, setRoommateAnswers] = useState<QuestionnaireAnswer[]>([]);
   const [userRoommateProfile, setUserRoommateProfile] = useState<Partial<RoommateProfile> | null>(null);
   const [lookingFor, setLookingFor] = useState<'room-and-roommate' | 'just-roommate' | 'pg-owner' | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [roommateMatches, setRoommateMatches] = useState<RoommateMatch[]>([]);
   
   // Update filtered PGs when filters change
   useEffect(() => {
@@ -168,7 +177,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   // Update user roommate profile
   const updateUserProfile = (profile: Partial<RoommateProfile>) => {
-    setUserRoommateProfile(prev => ({ ...prev, ...profile }));
+    const userId = userRoommateProfile?.id || `user-${Date.now()}`;
+    const updatedProfile = { ...userRoommateProfile, ...profile, id: userId };
+    setUserRoommateProfile(updatedProfile);
+    
+    // Update compatibility scores for all roommates
+    if (profile.answers) {
+      const updatedRoommates = roommates.map(roommate => {
+        const score = calculateCompatibilityScore(profile.answers || [], roommate.answers);
+        const sharedTraits = getSharedTraits(profile.answers || [], roommate.answers);
+        
+        return {
+          ...roommate,
+          compatibilityScore: score,
+          sharedTraits,
+        };
+      });
+      
+      setRoommates(updatedRoommates);
+    }
+  };
+  
+  // Calculate compatibility score between two users
+  const calculateCompatibilityScore = (userAnswers: QuestionnaireAnswer[], roommateAnswers: QuestionnaireAnswer[]): number => {
+    let matchedAnswers = 0;
+    let totalQuestions = 0;
+    
+    userAnswers.forEach(userAnswer => {
+      const roommateAnswer = roommateAnswers.find(a => a.questionId === userAnswer.questionId);
+      if (roommateAnswer) {
+        totalQuestions++;
+        if (userAnswer.answer === roommateAnswer.answer) {
+          matchedAnswers++;
+        }
+      }
+    });
+    
+    return totalQuestions > 0 ? Math.round((matchedAnswers / totalQuestions) * 100) : 0;
+  };
+  
+  // Get shared traits between two users
+  const getSharedTraits = (userAnswers: QuestionnaireAnswer[], roommateAnswers: QuestionnaireAnswer[]): string[] => {
+    const sharedTraits: string[] = [];
+    
+    userAnswers.forEach(userAnswer => {
+      const roommateAnswer = roommateAnswers.find(a => a.questionId === userAnswer.questionId);
+      if (roommateAnswer && userAnswer.answer === roommateAnswer.answer) {
+        const question = roommateQuestions.find(q => q.id === userAnswer.questionId);
+        const option = question?.options.find(o => o.value === userAnswer.answer);
+        
+        if (question && option) {
+          const traitDescription = `${question.text.split('?')[0]} - ${option.label}`;
+          sharedTraits.push(traitDescription);
+        }
+      }
+    });
+    
+    return sharedTraits.slice(0, 3); // Return top 3 shared traits
   };
   
   // Set looking for option
@@ -177,6 +242,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (option !== 'pg-owner') {
       updateUserProfile({ lookingFor: option as 'room-and-roommate' | 'just-roommate' });
     }
+  };
+  
+  // Request a match with another roommate
+  const requestRoommateMatch = (roommateId: string) => {
+    if (!userRoommateProfile?.id) return;
+    
+    const newMatch: RoommateMatch = {
+      userId: userRoommateProfile.id,
+      matchedUserId: roommateId,
+      status: 'pending',
+      timestamp: new Date(),
+    };
+    
+    setRoommateMatches(prev => [...prev, newMatch]);
+    
+    // Update the matched roommate's status in the UI
+    setRoommates(prev => 
+      prev.map(r => 
+        r.id === roommateId 
+          ? { ...r, hasMatched: true, matchStatus: 'pending' } 
+          : r
+      )
+    );
+  };
+  
+  // Respond to a match request
+  const respondToMatchRequest = (matchId: string, accept: boolean) => {
+    setRoommateMatches(prev => 
+      prev.map(match => 
+        match.userId === matchId 
+          ? { ...match, status: accept ? 'accepted' : 'rejected' } 
+          : match
+      )
+    );
+    
+    // Update the roommate's status in the UI
+    if (accept && userRoommateProfile?.id) {
+      const matchedRoommate = roommateMatches.find(m => m.userId === matchId);
+      if (matchedRoommate) {
+        setRoommates(prev => 
+          prev.map(r => 
+            r.id === matchedRoommate.matchedUserId 
+              ? { ...r, hasMatched: true, matchStatus: 'accepted' } 
+              : r
+          )
+        );
+      }
+    }
+  };
+  
+  // Start a chat with a roommate
+  const startChat = (roommateId: string) => {
+    // In a real app, this would initialize a chat session
+    // For now, we'll just log this action
+    console.log(`Chat started with roommate ${roommateId}`);
+  };
+  
+  // Send a chat message
+  const sendChatMessage = (receiverId: string, message: string) => {
+    if (!userRoommateProfile?.id) return;
+    
+    const newMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      senderId: userRoommateProfile.id,
+      receiverId,
+      message,
+      timestamp: new Date(),
+      isRead: false,
+    };
+    
+    setChatMessages(prev => [...prev, newMessage]);
   };
   
   return (
@@ -196,6 +332,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateUserProfile,
       lookingFor,
       setLookingForOption,
+      chatMessages,
+      roommateMatches,
+      requestRoommateMatch,
+      respondToMatchRequest,
+      startChat,
+      sendChatMessage,
     }}>
       {children}
     </AppContext.Provider>

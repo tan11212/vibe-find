@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { User, MapPin, Calendar, Briefcase } from 'lucide-react';
+import { User, MapPin, Calendar, Briefcase, Lock } from 'lucide-react';
 import { RoommateProfile } from '@/types';
 import { useNavigate } from 'react-router-dom';
 
@@ -71,7 +71,14 @@ const RoommateCard: React.FC<RoommateCardProps> = ({ roommate }) => {
             </div>
           </div>
           
-          {roommate.sharedTraits && roommate.sharedTraits.length > 0 && (
+          {!roommate.hasMatched && (
+            <div className="text-xs text-gray-600 mt-1 flex items-center">
+              <Lock size={12} className="mr-1" />
+              Match to see shared traits
+            </div>
+          )}
+          
+          {roommate.hasMatched && roommate.sharedTraits && roommate.sharedTraits.length > 0 && (
             <div className="text-xs text-gray-600 mt-1">
               Shared traits: {roommate.sharedTraits.join(', ')}
             </div>

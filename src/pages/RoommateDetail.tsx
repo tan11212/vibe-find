@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, MapPin, Calendar, Briefcase, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Calendar, Briefcase, CheckCircle2, MessageCircle, Lock } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ const RoommateDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { roommates } = useApp();
+  const { roommates, requestRoommateMatch, userRoommateProfile, startChat } = useApp();
   
   const roommate = roommates.find(r => r.id === id);
   
@@ -21,11 +21,33 @@ const RoommateDetail = () => {
     return null;
   }
   
-  const handleContactRequest = () => {
-    toast({
-      title: "Contact request sent",
-      description: `${roommate.name} will be notified of your interest`,
-    });
+  const handleMatchRequest = () => {
+    if (userRoommateProfile) {
+      requestRoommateMatch(roommate.id);
+      toast({
+        title: "Match request sent",
+        description: `${roommate.name} will be notified of your interest`,
+      });
+    } else {
+      toast({
+        title: "Profile required",
+        description: "Please create your profile first",
+        variant: "destructive",
+      });
+      navigate('/roommate-questionnaire');
+    }
+  };
+  
+  const handleStartChat = () => {
+    if (roommate.hasMatched && roommate.matchStatus === 'accepted') {
+      startChat(roommate.id);
+      toast({
+        title: "Chat started",
+        description: `You can now chat with ${roommate.name}`,
+      });
+      // In a real app, this would navigate to a chat screen
+      // For now, we'll just show a toast
+    }
   };
   
   return (
@@ -98,7 +120,14 @@ const RoommateDetail = () => {
                     <div className="text-xl font-bold text-appPurple">{roommate.compatibilityScore}%</div>
                   </div>
                   
-                  {roommate.sharedTraits && roommate.sharedTraits.length > 0 && (
+                  {!roommate.hasMatched && (
+                    <div className="flex items-center justify-center mt-3 p-2 bg-gray-100 rounded-lg">
+                      <Lock size={16} className="text-gray-500 mr-2" />
+                      <p className="text-gray-500">Match with this person to view shared traits</p>
+                    </div>
+                  )}
+                  
+                  {roommate.hasMatched && roommate.sharedTraits && roommate.sharedTraits.length > 0 && (
                     <div className="mt-2">
                       <p className="text-sm text-gray-600 mb-1">Shared traits:</p>
                       <div className="flex flex-wrap gap-1">
@@ -118,33 +147,58 @@ const RoommateDetail = () => {
               )}
               
               <h2 className="font-semibold text-lg mb-2">Lifestyle Preferences</h2>
-              <div className="space-y-3">
-                {roommate.answers.map(answer => {
-                  const question = roommateQuestions.find(q => q.id === answer.questionId);
-                  const selectedOption = question?.options.find(opt => opt.value === answer.answer);
-                  
-                  return question && selectedOption ? (
-                    <div key={question.id} className="border-b border-gray-100 pb-3 last:border-0">
-                      <div className="flex items-center mb-1">
-                        <span className="text-lg mr-2">{question.icon}</span>
-                        <p className="font-medium">{question.text}</p>
+              {!roommate.hasMatched ? (
+                <div className="text-center py-6 bg-gray-100 rounded-lg mb-4">
+                  <Lock size={24} className="text-gray-500 mx-auto mb-2" />
+                  <p className="text-gray-500">Detailed preferences are private</p>
+                  <p className="text-gray-500 text-sm">Match to see full profile</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {roommate.answers.map(answer => {
+                    const question = roommateQuestions.find(q => q.id === answer.questionId);
+                    const selectedOption = question?.options.find(opt => opt.value === answer.answer);
+                    
+                    return question && selectedOption ? (
+                      <div key={question.id} className="border-b border-gray-100 pb-3 last:border-0">
+                        <div className="flex items-center mb-1">
+                          <span className="text-lg mr-2">{question.icon}</span>
+                          <p className="font-medium">{question.text}</p>
+                        </div>
+                        <div className="bg-appBackground-gray inline-block px-3 py-1 rounded-full text-sm">
+                          {selectedOption.label}
+                        </div>
                       </div>
-                      <div className="bg-appBackground-gray inline-block px-3 py-1 rounded-full text-sm">
-                        {selectedOption.label}
-                      </div>
-                    </div>
-                  ) : null;
-                })}
-              </div>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
           </div>
           
-          <Button 
-            className="w-full bg-appPurple hover:bg-appPurple-dark" 
-            onClick={handleContactRequest}
-          >
-            Request Contact Information
-          </Button>
+          {roommate.hasMatched && roommate.matchStatus === 'accepted' ? (
+            <Button 
+              className="w-full bg-green-500 hover:bg-green-600 mb-2" 
+              onClick={handleStartChat}
+            >
+              <MessageCircle size={16} className="mr-2" />
+              Chat with {roommate.name}
+            </Button>
+          ) : roommate.hasMatched && roommate.matchStatus === 'pending' ? (
+            <Button 
+              className="w-full bg-amber-500 hover:bg-amber-600" 
+              disabled
+            >
+              Match request pending
+            </Button>
+          ) : (
+            <Button 
+              className="w-full bg-appPurple hover:bg-appPurple-dark" 
+              onClick={handleMatchRequest}
+            >
+              Request to Match
+            </Button>
+          )}
         </div>
       </div>
     </Layout>

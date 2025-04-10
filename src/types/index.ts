@@ -1,4 +1,3 @@
-
 // PG and Room Types
 export interface Amenity {
   id: string;
@@ -82,6 +81,22 @@ export interface QuestionnaireAnswer {
   answer: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  message: string;
+  timestamp: Date;
+  isRead: boolean;
+}
+
+export interface RoommateMatch {
+  userId: string;
+  matchedUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  timestamp: Date;
+}
+
 export interface RoommateProfile {
   id: string;
   name: string;
@@ -94,6 +109,8 @@ export interface RoommateProfile {
   compatibilityScore?: number;
   sharedTraits?: string[];
   image?: string;
+  hasMatched?: boolean;
+  matchStatus?: 'pending' | 'accepted' | 'rejected';
 }
 
 // For PG Owner Listing
