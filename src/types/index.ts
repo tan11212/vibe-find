@@ -1,0 +1,97 @@
+
+// PG and Room Types
+export interface Amenity {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+export interface Bed {
+  id: string;
+  isOccupied: boolean;
+  availableFrom?: Date;
+}
+
+export interface Room {
+  id: string;
+  type: 'single' | 'double' | 'triple' | 'other';
+  beds: Bed[];
+  price: number;
+  amenities: string[];
+}
+
+export interface NearbyPlace {
+  id: string;
+  name: string;
+  type: 'atm' | 'canteen' | 'gym' | 'hospital' | 'bus';
+  distance: number; // in meters
+  location: {
+    lat: number;
+    lng: number;
+  };
+}
+
+export interface PG {
+  id: string;
+  name: string;
+  address: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  gender: 'male' | 'female' | 'co-ed';
+  rooms: Room[];
+  totalBeds: number;
+  availableBeds: number;
+  amenities: string[];
+  nearbyPlaces: NearbyPlace[];
+  images: string[];
+  description: string;
+  rating: number;
+  reviews: number;
+  isFavorite: boolean;
+}
+
+// Filter Types
+export interface PGFilter {
+  price: {
+    min: number;
+    max: number;
+  };
+  location?: string;
+  gender?: 'male' | 'female' | 'co-ed' | null;
+  amenities: string[];
+  availability?: 'available-now' | 'available-soon' | null;
+}
+
+// Roommate Types
+export type QuestionOption = {
+  value: string;
+  label: string;
+};
+
+export interface Question {
+  id: string;
+  text: string;
+  options: QuestionOption[];
+  icon: string;
+}
+
+export interface QuestionnaireAnswer {
+  questionId: string;
+  answer: string;
+}
+
+export interface RoommateProfile {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  occupation: string;
+  lookingFor: 'room-and-roommate' | 'just-roommate';
+  answers: QuestionnaireAnswer[];
+  bio: string;
+  compatibilityScore?: number;
+  sharedTraits?: string[];
+  image?: string;
+}
