@@ -37,6 +37,24 @@ const RoommateFinder = () => {
           <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
             <h2 className="font-medium text-lg mb-3">What are you looking for?</h2>
             <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={lookingFor === 'pg-owner' ? 'default' : 'outline'}
+                  className={lookingFor === 'pg-owner' ? 'bg-appPurple hover:bg-appPurple-dark' : ''}
+                  onClick={() => {
+                    setLookingForOption('pg-owner');
+                    navigate('/pg-owner-listing');
+                  }}
+                >
+                  List Your PG
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/')}
+                >
+                  Find PG
+                </Button>
+              </div>
               <Button
                 variant={lookingFor === 'just-roommate' ? 'default' : 'outline'}
                 className={lookingFor === 'just-roommate' ? 'bg-appPurple hover:bg-appPurple-dark' : ''}
@@ -50,16 +68,6 @@ const RoommateFinder = () => {
                 onClick={() => setLookingForOption('room-and-roommate')}
               >
                 I need room & roommate
-              </Button>
-              <Button
-                variant={lookingFor === 'pg-owner' ? 'default' : 'outline'}
-                className={lookingFor === 'pg-owner' ? 'bg-appPurple hover:bg-appPurple-dark' : ''}
-                onClick={() => {
-                  setLookingForOption('pg-owner');
-                  navigate('/pg-owner-listing');
-                }}
-              >
-                I'm a PG owner, want to list my property
               </Button>
             </div>
           </div>

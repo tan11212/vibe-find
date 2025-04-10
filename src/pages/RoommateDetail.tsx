@@ -50,6 +50,11 @@ const RoommateDetail = () => {
     }
   };
   
+  // Filter answers to only show public ones if not matched
+  const visibleAnswers = roommate.hasMatched 
+    ? roommate.answers 
+    : roommate.answers.filter(answer => answer.isPublic);
+  
   return (
     <Layout>
       <div className="gradient-bg-pink min-h-screen">
@@ -147,15 +152,15 @@ const RoommateDetail = () => {
               )}
               
               <h2 className="font-semibold text-lg mb-2">Lifestyle Preferences</h2>
-              {!roommate.hasMatched ? (
+              {visibleAnswers.length === 0 ? (
                 <div className="text-center py-6 bg-gray-100 rounded-lg mb-4">
                   <Lock size={24} className="text-gray-500 mx-auto mb-2" />
-                  <p className="text-gray-500">Detailed preferences are private</p>
-                  <p className="text-gray-500 text-sm">Match to see full profile</p>
+                  <p className="text-gray-500">This user has set all preferences to private</p>
+                  <p className="text-gray-500 text-sm">Match to see more details</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {roommate.answers.map(answer => {
+                  {visibleAnswers.map(answer => {
                     const question = roommateQuestions.find(q => q.id === answer.questionId);
                     const selectedOption = question?.options.find(opt => opt.value === answer.answer);
                     
@@ -171,6 +176,15 @@ const RoommateDetail = () => {
                       </div>
                     ) : null;
                   })}
+                  
+                  {!roommate.hasMatched && visibleAnswers.length < roommate.answers.length && (
+                    <div className="flex items-center mt-3 p-2 bg-gray-100 rounded-lg">
+                      <Lock size={16} className="text-gray-500 mr-2" />
+                      <p className="text-gray-500">
+                        {roommate.answers.length - visibleAnswers.length} more preferences are private. Match to see all.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

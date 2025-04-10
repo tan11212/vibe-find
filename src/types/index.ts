@@ -1,3 +1,4 @@
+
 // PG and Room Types
 export interface Amenity {
   id: string;
@@ -79,6 +80,7 @@ export interface Question {
 export interface QuestionnaireAnswer {
   questionId: string;
   answer: string;
+  isPublic: boolean; // New field to track privacy setting
 }
 
 export interface ChatMessage {

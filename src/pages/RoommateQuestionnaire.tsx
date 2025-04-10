@@ -6,7 +6,7 @@ import QuestionnaireCard from '@/components/QuestionnaireCard';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
 import { roommateQuestions } from '@/data/mockData';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -33,7 +33,19 @@ const RoommateQuestionnaire = () => {
   const totalSteps = roommateQuestions.length + 1; // +1 for personal details
   
   const handleAnswerSelected = (questionId: string, answer: string) => {
-    addRoommateAnswer(questionId, answer);
+    // Find existing answer to preserve privacy setting
+    const existingAnswer = roommateAnswers.find(a => a.questionId === questionId);
+    const isPublic = existingAnswer?.isPublic ?? true; // Default to public if no existing answer
+    
+    addRoommateAnswer(questionId, answer, isPublic);
+  };
+  
+  const handlePrivacyToggle = (questionId: string, isPublic: boolean) => {
+    // Find existing answer to preserve the selected answer
+    const existingAnswer = roommateAnswers.find(a => a.questionId === questionId);
+    if (existingAnswer) {
+      addRoommateAnswer(questionId, existingAnswer.answer, isPublic);
+    }
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -202,6 +214,13 @@ const RoommateQuestionnaire = () => {
                     placeholder="Tell potential roommates a bit about yourself"
                   />
                 </div>
+                
+                <div className="bg-blue-50 p-3 rounded-lg text-sm flex items-start">
+                  <Info size={18} className="text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <p className="text-blue-700">
+                    In the next steps, you'll answer questions about your lifestyle. You can choose which answers to make public on your profile. All answers will be used for compatibility matching even if not public.
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
@@ -212,7 +231,13 @@ const RoommateQuestionnaire = () => {
                   a => a.questionId === roommateQuestions[currentStep - 1].id
                 )?.answer || null
               }
+              isPublic={
+                roommateAnswers.find(
+                  a => a.questionId === roommateQuestions[currentStep - 1].id
+                )?.isPublic ?? true
+              }
               onAnswerSelected={handleAnswerSelected}
+              onPrivacyToggle={handlePrivacyToggle}
             />
           )}
           

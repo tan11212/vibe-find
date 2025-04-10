@@ -21,7 +21,7 @@ interface AppContextType {
   toggleFavorite: (pgId: string) => void;
   toggleFollowPG: (pgId: string) => void;
   updateFilters: (newFilters: PGFilter) => void;
-  addRoommateAnswer: (questionId: string, answer: string) => void;
+  addRoommateAnswer: (questionId: string, answer: string, isPublic?: boolean) => void;
   updateUserProfile: (profile: Partial<RoommateProfile>) => void;
   setLookingForOption: (option: 'room-and-roommate' | 'just-roommate' | 'pg-owner') => void;
   requestRoommateMatch: (roommateId: string) => void;
@@ -162,15 +162,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   
   // Add or update a roommate answer
-  const addRoommateAnswer = (questionId: string, answer: string) => {
+  const addRoommateAnswer = (questionId: string, answer: string, isPublic: boolean = true) => {
     setRoommateAnswers(prev => {
       const existingIndex = prev.findIndex(a => a.questionId === questionId);
       if (existingIndex >= 0) {
         const updated = [...prev];
-        updated[existingIndex] = { questionId, answer };
+        updated[existingIndex] = { questionId, answer, isPublic };
         return updated;
       } else {
-        return [...prev, { questionId, answer }];
+        return [...prev, { questionId, answer, isPublic }];
       }
     });
   };
