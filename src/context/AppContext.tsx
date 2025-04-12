@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { mockPGs, mockRoommates, roommateQuestions } from '@/data/mockData';
-import { PG, PGFilter, QuestionnaireAnswer, RoommateProfile, ChatMessage, RoommateMatch } from '@/types';
+import { PG, PGFilter, QuestionnaireAnswer, RoommateProfile, ChatMessage, RoommateMatch, PGListing, CompatibilityConfig } from '@/types';
 
 interface AppContextType {
   // PG state
@@ -16,6 +16,7 @@ interface AppContextType {
   lookingFor: 'room-and-roommate' | 'just-roommate' | 'pg-owner' | null;
   chatMessages: ChatMessage[];
   roommateMatches: RoommateMatch[];
+  pgListings: PGListing[];
   // Functions
   toggleFavorite: (pgId: string) => void;
   toggleFollowPG: (pgId: string) => void;
@@ -27,6 +28,8 @@ interface AppContextType {
   respondToMatchRequest: (matchId: string, accept: boolean) => void;
   startChat: (roommateId: string) => void;
   sendChatMessage: (receiverId: string, message: string) => void;
+  createPGListing: (listing: Partial<PGListing>) => void;
+  updatePGListing: (listingId: string, updates: Partial<PGListing>) => void;
 }
 
 const defaultFilters: PGFilter = {
@@ -34,6 +37,18 @@ const defaultFilters: PGFilter = {
   gender: null,
   amenities: [],
   availability: null,
+};
+
+// Smart compatibility configuration
+const compatibilityConfig: CompatibilityConfig = {
+  importanceWeights: {
+    high: 3,    // High importance questions count 3x
+    medium: 2,  // Medium importance questions count 2x
+    low: 1      // Low importance questions count 1x
+  },
+  dealBreakerPenalty: 30,  // Reduce score by 30% for each deal breaker
+  incompatibleLifestylePenalty: 15, // Reduce score by 15% for major lifestyle incompatibilities
+  minimumCompatibilityScore: 15  // Below this score, show as incompatible
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -53,6 +68,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [lookingFor, setLookingFor] = useState<'room-and-roommate' | 'just-roommate' | 'pg-owner' | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [roommateMatches, setRoommateMatches] = useState<RoommateMatch[]>([]);
+  const [pgListings, setPgListings] = useState<PGListing[]>([]);
   
   // Update filtered PGs when filters change
   useEffect(() => {
@@ -183,19 +199,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Update compatibility scores for all roommates
     if (profile.answers) {
       const updatedRoommates = roommates.map(roommate => {
-        const score = calculateCompatibilityScore(profile.answers || [], roommate.answers);
-        const sharedTraits = getSharedTraits(profile.answers || [], roommate.answers);
-        
-        // Check for dealbreakers
-        let hasCompatibilityIssues = false;
-        if (profile.dealBreakers && roommate.answers) {
-          hasCompatibilityIssues = checkForDealBreakers(profile.dealBreakers, roommate.answers);
-        }
+        const { score, sharedTraits, hasDealBreakers } = calculateSmartCompatibility(profile.answers || [], roommate.answers, profile.dealBreakers || []);
         
         return {
           ...roommate,
-          compatibilityScore: hasCompatibilityIssues ? Math.max(0, score - 40) : score, // Significantly reduce score if dealbreakers exist
+          compatibilityScore: score,
           sharedTraits,
+          // Add a flag to indicate deal breakers for UI purposes
+          hasDealBreakers: hasDealBreakers
         };
       });
       
@@ -203,12 +214,215 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
   
-  // Check if there are dealbreaker issues
+  // Smart compatibility calculation
+  const calculateSmartCompatibility = (
+    userAnswers: QuestionnaireAnswer[], 
+    roommateAnswers: QuestionnaireAnswer[],
+    userDealBreakers: string[]
+  ): { score: number; sharedTraits: string[]; hasDealBreakers: boolean } => {
+    let totalWeight = 0;
+    let weightedMatches = 0;
+    let hasDealBreakers = false;
+    let majorIncompatibilities = 0;
+    const sharedTraits: string[] = [];
+    
+    // Check for potential deal breakers
+    const dealBreakerFound = checkForDealBreakers(userDealBreakers, roommateAnswers);
+    if (dealBreakerFound) {
+      hasDealBreakers = true;
+    }
+    
+    // Check hard incompatibilities (smoking, alcohol, sleep schedule, noise)
+    const hardIncompatibilitiesCount = checkHardIncompatibilities(userAnswers, roommateAnswers);
+    majorIncompatibilities = hardIncompatibilitiesCount;
+    
+    // For each user answer, find corresponding roommate answer
+    userAnswers.forEach(userAnswer => {
+      const question = roommateQuestions.find(q => q.id === userAnswer.questionId);
+      if (!question) return;
+      
+      const roommateAnswer = roommateAnswers.find(a => a.questionId === userAnswer.questionId);
+      if (!roommateAnswer) return;
+      
+      // Get importance weight for this question
+      const importanceWeight = question.importanceLevel 
+        ? compatibilityConfig.importanceWeights[question.importanceLevel] 
+        : compatibilityConfig.importanceWeights.medium; // Default to medium
+      
+      totalWeight += importanceWeight;
+      
+      // Check answer compatibility
+      const compatibility = calculateAnswerCompatibility(userAnswer.answer, roommateAnswer.answer, question);
+      
+      // Add weighted compatibility
+      weightedMatches += compatibility * importanceWeight;
+      
+      // Add to shared traits if good match
+      if (compatibility > 0.7) {
+        const option = question.options.find(o => o.value === userAnswer.answer);
+        if (question && option) {
+          const traitDescription = `${question.text.split('?')[0]} - ${option.label}`;
+          sharedTraits.push(traitDescription);
+        }
+      }
+    });
+    
+    // Calculate base score (0-100)
+    let score = totalWeight > 0 
+      ? Math.round((weightedMatches / totalWeight) * 100) 
+      : 0;
+    
+    // Apply penalties for dealbreakers and major incompatibilities
+    if (hasDealBreakers) {
+      score = Math.max(0, score - compatibilityConfig.dealBreakerPenalty);
+    }
+    
+    // Apply penalties for each major incompatibility
+    score = Math.max(0, score - (majorIncompatibilities * compatibilityConfig.incompatibleLifestylePenalty));
+    
+    // Ensure minimum compatibility score
+    if (score < compatibilityConfig.minimumCompatibilityScore) {
+      score = compatibilityConfig.minimumCompatibilityScore;
+    }
+    
+    return { 
+      score, 
+      sharedTraits: sharedTraits.slice(0, 3), // Top 3 shared traits
+      hasDealBreakers
+    };
+  };
+  
+  // Calculate how compatible two answers are (0.0 to 1.0)
+  const calculateAnswerCompatibility = (
+    userAnswer: string, 
+    roommateAnswer: string, 
+    question: Question
+  ): number => {
+    // Direct match
+    if (userAnswer === roommateAnswer) {
+      return 1.0;
+    }
+    
+    // Special compatibility logic based on question type
+    switch (question.id) {
+      // Sleep/wake schedule compatibility
+      case 'wake-time':
+      case 'sleep-time': {
+        // Get numeric indices for time-related answers
+        const options = question.options;
+        const userIdx = options.findIndex(o => o.value === userAnswer);
+        const roommateIdx = options.findIndex(o => o.value === roommateAnswer);
+        
+        // Calculate how close the schedules are (closer = more compatible)
+        const diff = Math.abs(userIdx - roommateIdx);
+        return diff === 0 ? 1.0 : diff === 1 ? 0.7 : diff === 2 ? 0.3 : 0.0;
+      }
+      
+      // Noise tolerance compatibility
+      case 'noise-tolerance':
+      case 'music-habits':
+      case 'study-style': {
+        // Someone who prefers quiet environment (index 0) won't match well with someone who likes noise (index 2)
+        const options = question.options;
+        const userIdx = options.findIndex(o => o.value === userAnswer);
+        const roommateIdx = options.findIndex(o => o.value === roommateAnswer);
+        
+        const diff = Math.abs(userIdx - roommateIdx);
+        return diff === 0 ? 1.0 : diff === 1 ? 0.5 : 0.0; // More strict on noise compatibility
+      }
+      
+      // Cleaning habits - people with different cleaning styles often conflict
+      case 'cleaning-preferences': {
+        const options = question.options;
+        const userIdx = options.findIndex(o => o.value === userAnswer);
+        const roommateIdx = options.findIndex(o => o.value === roommateAnswer);
+        
+        // If one person is very clean and other isn't, compatibility is low
+        if ((userIdx === 0 && roommateIdx === 2) || (userIdx === 2 && roommateIdx === 0)) {
+          return 0.1; // Very incompatible
+        }
+        
+        const diff = Math.abs(userIdx - roommateIdx);
+        return diff === 0 ? 1.0 : diff === 1 ? 0.6 : 0.2;
+      }
+      
+      // For sharing things, social habits, guests, etc. - default compatibility
+      default: {
+        const options = question.options;
+        const userIdx = options.findIndex(o => o.value === userAnswer);
+        const roommateIdx = options.findIndex(o => o.value === roommateAnswer);
+        
+        if (userIdx === -1 || roommateIdx === -1) return 0.5; // Default if can't find
+        
+        const diff = Math.abs(userIdx - roommateIdx);
+        const maxDiff = options.length - 1;
+        
+        return maxDiff > 0 ? 1 - (diff / maxDiff) : 1.0;
+      }
+    }
+  };
+  
+  // Check hard incompatibilities (zero-tolerance issues)
+  const checkHardIncompatibilities = (
+    userAnswers: QuestionnaireAnswer[],
+    roommateAnswers: QuestionnaireAnswer[]
+  ): number => {
+    let incompatibilities = 0;
+    
+    // Smoking incompatibility (non-smoker with smoker)
+    const userSmokingAnswer = userAnswers.find(a => a.questionId === 'smoking-habits');
+    const roommateSmokingAnswer = roommateAnswers.find(a => a.questionId === 'smoking-habits');
+    
+    if (userSmokingAnswer && roommateSmokingAnswer) {
+      // Non-smoker with smoker is incompatible
+      if (userSmokingAnswer.answer === 'no' && roommateSmokingAnswer.answer === 'yes') {
+        incompatibilities++;
+      }
+    }
+    
+    // Sleep schedule severe mismatch
+    const userWakeAnswer = userAnswers.find(a => a.questionId === 'wake-time');
+    const roommateWakeAnswer = roommateAnswers.find(a => a.questionId === 'wake-time');
+    
+    if (userWakeAnswer && roommateWakeAnswer) {
+      // Early riser vs. night owl
+      if ((userWakeAnswer.answer === 'before-7am' && roommateWakeAnswer.answer === 'after-11am') ||
+          (userWakeAnswer.answer === 'after-11am' && roommateWakeAnswer.answer === 'before-7am')) {
+        incompatibilities++;
+      }
+    }
+    
+    // Alcohol hard mismatch
+    const userAlcoholAnswer = userAnswers.find(a => a.questionId === 'alcohol-habits');
+    const roommateAlcoholAnswer = roommateAnswers.find(a => a.questionId === 'alcohol-habits');
+    
+    if (userAlcoholAnswer && roommateAlcoholAnswer) {
+      // Non-drinker with frequent drinker
+      if (userAlcoholAnswer.answer === 'no' && roommateAlcoholAnswer.answer === 'frequently') {
+        incompatibilities++;
+      }
+    }
+    
+    // Noise sensitivity hard mismatch
+    const userNoiseAnswer = userAnswers.find(a => a.questionId === 'noise-tolerance');
+    const roommateNoiseAnswer = roommateAnswers.find(a => a.questionId === 'noise-tolerance');
+    
+    if (userNoiseAnswer && roommateNoiseAnswer) {
+      // Very sensitive with not bothered
+      if ((userNoiseAnswer.answer === 'very-sensitive' && roommateNoiseAnswer.answer === 'not-bothered') ||
+          (userNoiseAnswer.answer === 'not-bothered' && roommateNoiseAnswer.answer === 'very-sensitive')) {
+        incompatibilities++;
+      }
+    }
+    
+    return incompatibilities;
+  };
+  
+  // Check if there are dealbreaker issues (based on explicit deal breakers)
   const checkForDealBreakers = (dealBreakers: string[], roommateAnswers: QuestionnaireAnswer[]): boolean => {
     if (!dealBreakers.length) return false;
     
-    // This is a simplified implementation. In a real app, you'd have a more sophisticated matching algorithm
-    // For now, we'll just check if any dealbreaker keywords appear in the roommate's answers
+    // This is a more robust implementation than before
     for (const dealBreaker of dealBreakers) {
       const lowerDealBreaker = dealBreaker.toLowerCase();
       
@@ -219,80 +433,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // Check smoking
         if ((lowerDealBreaker.includes('smok') || lowerDealBreaker.includes('cigarette')) && 
-            question.text.toLowerCase().includes('smoke') && 
+            question.id === 'smoking-habits' && 
             answer.answer !== 'no') {
           return true;
         }
         
         // Check noise/loud music
         if ((lowerDealBreaker.includes('noise') || lowerDealBreaker.includes('loud') || lowerDealBreaker.includes('quiet')) && 
-            (question.text.toLowerCase().includes('noise') || question.text.toLowerCase().includes('music')) && 
-            (answer.answer.includes('loud') || answer.answer.includes('speaker'))) {
+            (question.id === 'noise-tolerance' || question.id === 'music-habits') && 
+            (answer.answer.includes('loud') || answer.answer === 'not-bothered')) {
           return true;
         }
         
         // Check cleanliness
         if ((lowerDealBreaker.includes('clean') || lowerDealBreaker.includes('tidy') || lowerDealBreaker.includes('mess')) && 
-            question.text.toLowerCase().includes('clean') && 
-            (answer.answer.includes('mess') || answer.answer.includes('not-into-cleaning'))) {
+            question.id === 'cleaning-preferences' && 
+            answer.answer === 'not-into-cleaning') {
           return true;
         }
         
         // Check guests
         if ((lowerDealBreaker.includes('guest') || lowerDealBreaker.includes('visit')) && 
-            question.text.toLowerCase().includes('guest') && 
-            answer.answer.includes('frequent')) {
+            question.id === 'guests-policy' && 
+            answer.answer === 'frequent-visits') {
           return true;
         }
         
         // Check alcohol
         if ((lowerDealBreaker.includes('alcohol') || lowerDealBreaker.includes('drink')) && 
-            question.text.toLowerCase().includes('alcohol') && 
+            question.id === 'alcohol-habits' && 
             answer.answer !== 'no') {
+          return true;
+        }
+        
+        // Check wake/sleep times
+        if ((lowerDealBreaker.includes('early') || lowerDealBreaker.includes('morning')) && 
+            question.id === 'wake-time' && 
+            answer.answer === 'after-11am') {
+          return true;
+        }
+        
+        if ((lowerDealBreaker.includes('night') || lowerDealBreaker.includes('late')) && 
+            question.id === 'bedtime' && 
+            answer.answer === 'before-10pm') {
           return true;
         }
       }
     }
     
     return false;
-  };
-  
-  // Calculate compatibility score between two users
-  const calculateCompatibilityScore = (userAnswers: QuestionnaireAnswer[], roommateAnswers: QuestionnaireAnswer[]): number => {
-    let matchedAnswers = 0;
-    let totalQuestions = 0;
-    
-    userAnswers.forEach(userAnswer => {
-      const roommateAnswer = roommateAnswers.find(a => a.questionId === userAnswer.questionId);
-      if (roommateAnswer) {
-        totalQuestions++;
-        if (userAnswer.answer === roommateAnswer.answer) {
-          matchedAnswers++;
-        }
-      }
-    });
-    
-    return totalQuestions > 0 ? Math.round((matchedAnswers / totalQuestions) * 100) : 0;
-  };
-  
-  // Get shared traits between two users
-  const getSharedTraits = (userAnswers: QuestionnaireAnswer[], roommateAnswers: QuestionnaireAnswer[]): string[] => {
-    const sharedTraits: string[] = [];
-    
-    userAnswers.forEach(userAnswer => {
-      const roommateAnswer = roommateAnswers.find(a => a.questionId === userAnswer.questionId);
-      if (roommateAnswer && userAnswer.answer === roommateAnswer.answer) {
-        const question = roommateQuestions.find(q => q.id === userAnswer.questionId);
-        const option = question?.options.find(o => o.value === userAnswer.answer);
-        
-        if (question && option) {
-          const traitDescription = `${question.text.split('?')[0]} - ${option.label}`;
-          sharedTraits.push(traitDescription);
-        }
-      }
-    });
-    
-    return sharedTraits.slice(0, 3); // Return top 3 shared traits
   };
   
   // Set looking for option
@@ -374,6 +563,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChatMessages(prev => [...prev, newMessage]);
   };
   
+  // Create a new PG listing
+  const createPGListing = (listing: Partial<PGListing>) => {
+    const newListing: PGListing = {
+      id: `pg-${Date.now()}`,
+      name: listing.name || 'Untitled PG',
+      address: listing.address || '',
+      gender: listing.gender || 'co-ed',
+      description: listing.description || '',
+      totalBeds: listing.totalBeds || 0,
+      availableBeds: listing.availableBeds || 0,
+      price: listing.price || 0,
+      amenities: listing.amenities || [],
+      ownerId: 'current-user', // In a real app, this would be the current user's ID
+      createdAt: new Date(),
+      location: listing.location,
+      images: listing.images || [],
+      status: listing.status || 'draft',
+    };
+    
+    setPgListings(prev => [...prev, newListing]);
+  };
+  
+  // Update an existing PG listing
+  const updatePGListing = (listingId: string, updates: Partial<PGListing>) => {
+    setPgListings(prev => 
+      prev.map(listing => 
+        listing.id === listingId 
+          ? { ...listing, ...updates } 
+          : listing
+      )
+    );
+  };
+  
   return (
     <AppContext.Provider value={{
       pgs,
@@ -397,6 +619,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       respondToMatchRequest,
       startChat,
       sendChatMessage,
+      pgListings,
+      createPGListing,
+      updatePGListing,
     }}>
       {children}
     </AppContext.Provider>

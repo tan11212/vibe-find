@@ -68,6 +68,7 @@ export interface PGFilter {
 export type QuestionOption = {
   value: string;
   label: string;
+  compatibilityWeight?: number; // Weight for compatibility scoring
 };
 
 export interface Question {
@@ -75,6 +76,8 @@ export interface Question {
   text: string;
   options: QuestionOption[];
   icon: string;
+  importanceLevel?: 'high' | 'medium' | 'low'; // How important is this question for compatibility
+  dealBreakerPotential?: boolean; // Whether this question could be a potential deal breaker
 }
 
 export interface QuestionnaireAnswer {
@@ -129,6 +132,12 @@ export interface PGListing {
   amenities: string[];
   ownerId: string;
   createdAt: Date;
+  location?: {
+    lat: number;
+    lng: number;
+  };
+  images?: string[];
+  status: 'draft' | 'published' | 'archived';
 }
 
 // Emergency Safety Feature
@@ -138,4 +147,19 @@ export interface EmergencyContact {
   phone: string;
   relationship: string;
   isEmergencyContact: boolean;
+}
+
+// Smart compatibility scoring weights
+export interface CompatibilityConfig {
+  // Question importance weights
+  importanceWeights: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  // Penalty factors
+  dealBreakerPenalty: number;
+  incompatibleLifestylePenalty: number;
+  // Thresholds
+  minimumCompatibilityScore: number;
 }
