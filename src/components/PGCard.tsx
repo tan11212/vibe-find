@@ -8,9 +8,10 @@ import { amenities as allAmenities } from '@/data/mockData';
 interface PGCardProps {
   pg: PG;
   onToggleFavorite: (id: string) => void;
+  onView: () => void;
 }
 
-const PGCard: React.FC<PGCardProps> = ({ pg, onToggleFavorite }) => {
+const PGCard: React.FC<PGCardProps> = ({ pg, onToggleFavorite, onView }) => {
   const navigate = useNavigate();
   
   const availableBedsText = pg.availableBeds > 0 
@@ -34,7 +35,7 @@ const PGCard: React.FC<PGCardProps> = ({ pg, onToggleFavorite }) => {
   return (
     <div 
       className="rounded-xl overflow-hidden bg-white shadow-lg mb-4 animate-scale-in card-shadow"
-      onClick={() => navigate(`/pg/${pg.id}`)}
+      onClick={onView}
     >
       <div className="relative">
         <img 

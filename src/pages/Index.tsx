@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useApp } from '@/context/AppContext';
 import { Search, Bookmark, Building, Plus } from 'lucide-react';
+import { PGFilter } from '@/types';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { filteredPGs, favorites, toggleFavorite } = useApp();
+  const { filteredPGs, favorites, toggleFavorite, filters, updateFilters } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,6 +25,10 @@ const Index = () => {
         pg.address.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : filteredPGs;
+
+  const handleApplyFilters = (newFilters: PGFilter) => {
+    updateFilters(newFilters);
+  };
   
   return (
     <Layout>
@@ -53,7 +58,10 @@ const Index = () => {
           />
         </div>
         
-        <PGFilters />
+        <PGFilters 
+          currentFilters={filters} 
+          onApplyFilters={handleApplyFilters} 
+        />
         
         <div className="bg-white p-4 rounded-xl shadow mb-4">
           <div className="flex justify-between items-center mb-2">
@@ -78,7 +86,7 @@ const Index = () => {
                 <PGCard 
                   key={pg.id} 
                   pg={pg} 
-                  onFavoriteToggle={() => toggleFavorite(pg.id)}
+                  onToggleFavorite={() => toggleFavorite(pg.id)}
                   onView={() => navigate(`/pg/${pg.id}`)}
                 />
               ))}
