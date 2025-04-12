@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -138,6 +137,25 @@ const PGListingForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
   
+  const handleSaveDraft = () => {
+    // Add image URLs to the listing
+    const listingWithImages = {
+      ...formData,
+      images: images.map(img => img.url),
+      status: 'draft' as 'draft' | 'published' | 'archived',
+    };
+    
+    createPGListing(listingWithImages);
+    
+    toast({
+      title: 'Draft Saved',
+      description: 'Your PG listing has been saved as a draft',
+    });
+    
+    // Navigate back to PG owner dashboard
+    navigate('/pg-owner-listing');
+  };
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -154,6 +172,7 @@ const PGListingForm: React.FC = () => {
     const listingWithImages = {
       ...formData,
       images: images.map(img => img.url),
+      status: 'published' as 'draft' | 'published' | 'archived',
     };
     
     createPGListing(listingWithImages);
@@ -161,25 +180,6 @@ const PGListingForm: React.FC = () => {
     toast({
       title: 'Success',
       description: 'Your PG listing has been created',
-    });
-    
-    // Navigate back to PG owner dashboard
-    navigate('/pg-owner-listing');
-  };
-  
-  const handleSaveDraft = () => {
-    // Add image URLs to the listing
-    const listingWithImages = {
-      ...formData,
-      images: images.map(img => img.url),
-      status: 'draft',
-    };
-    
-    createPGListing(listingWithImages);
-    
-    toast({
-      title: 'Draft Saved',
-      description: 'Your PG listing has been saved as a draft',
     });
     
     // Navigate back to PG owner dashboard
