@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, MapPin, Calendar, Briefcase, CheckCircle2, MessageCircle, Lock } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Calendar, Briefcase, CheckCircle2, MessageCircle, Lock, AlertTriangle } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
@@ -148,6 +148,28 @@ const RoommateDetail = () => {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+              
+              {roommate.hasMatched && roommate.dealBreakers && roommate.dealBreakers.length > 0 && (
+                <div className="mb-4 bg-amber-50 p-3 rounded-lg">
+                  <h3 className="font-medium flex items-center text-amber-800">
+                    <AlertTriangle size={16} className="mr-2" />
+                    Deal Breakers
+                  </h3>
+                  <p className="text-sm text-amber-700 mt-1 mb-2">
+                    These are issues that {roommate.name} considers incompatible:
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {roommate.dealBreakers.map((dealBreaker, index) => (
+                      <div 
+                        key={index} 
+                        className="bg-white text-amber-800 text-xs px-2 py-1 rounded-md"
+                      >
+                        {dealBreaker}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               

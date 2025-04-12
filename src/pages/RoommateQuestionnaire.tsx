@@ -6,7 +6,7 @@ import QuestionnaireCard from '@/components/QuestionnaireCard';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
 import { roommateQuestions } from '@/data/mockData';
-import { ArrowLeft, ArrowRight, Check, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Info, X, Plus, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -24,13 +24,15 @@ const RoommateQuestionnaire = () => {
     occupation: '',
     bio: '',
   });
+  const [dealBreakers, setDealBreakers] = useState<string[]>([]);
+  const [newDealBreaker, setNewDealBreaker] = useState('');
   
   if (!lookingFor) {
     navigate('/roommate-finder');
     return null;
   }
   
-  const totalSteps = roommateQuestions.length + 1; // +1 for personal details
+  const totalSteps = roommateQuestions.length + 2; // +1 for personal details, +1 for deal breakers
   
   const handleAnswerSelected = (questionId: string, answer: string) => {
     // Find existing answer to preserve privacy setting
@@ -53,6 +55,17 @@ const RoommateQuestionnaire = () => {
     setUserDetail(prev => ({ ...prev, [name]: value }));
   };
   
+  const handleAddDealBreaker = () => {
+    if (!newDealBreaker.trim()) return;
+    
+    setDealBreakers(prev => [...prev, newDealBreaker.trim()]);
+    setNewDealBreaker('');
+  };
+  
+  const handleRemoveDealBreaker = (index: number) => {
+    setDealBreakers(prev => prev.filter((_, i) => i !== index));
+  };
+  
   const handleNext = () => {
     if (currentStep === 0) {
       // Validate personal details
@@ -64,6 +77,9 @@ const RoommateQuestionnaire = () => {
         });
         return;
       }
+    } else if (currentStep === totalSteps - 1) {
+      // This is the deal breakers step, no validation needed
+      return;
     } else {
       // Validate questionnaire answer
       const currentQuestion = roommateQuestions[currentStep - 1];
@@ -86,20 +102,6 @@ const RoommateQuestionnaire = () => {
   };
   
   const handleSubmit = () => {
-    // Validate the last question is answered
-    if (currentStep > 0) {
-      const currentQuestion = roommateQuestions[currentStep - 1];
-      const answer = roommateAnswers.find(a => a.questionId === currentQuestion.id);
-      if (!answer) {
-        toast({
-          title: "Please select an answer",
-          description: "Select one of the options to continue",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
     // Update user profile
     updateUserProfile({
       name: userDetail.name,
@@ -108,6 +110,7 @@ const RoommateQuestionnaire = () => {
       occupation: userDetail.occupation,
       bio: userDetail.bio,
       answers: roommateAnswers,
+      dealBreakers: dealBreakers,
     });
     
     toast({
@@ -116,6 +119,182 @@ const RoommateQuestionnaire = () => {
     });
     
     navigate('/roommate-finder');
+  };
+  
+  const renderCurrentStep = () => {
+    if (currentStep === 0) {
+      // Personal details step
+      return (
+        <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-fade-in">
+          <h2 className="font-semibold text-lg mb-4">Tell us about yourself</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={userDetail.name}
+                onChange={handleInputChange}
+                placeholder="Enter your name"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="age">Age</Label>
+              <Input
+                id="age"
+                name="age"
+                type="number"
+                value={userDetail.age}
+                onChange={handleInputChange}
+                placeholder="Enter your age"
+              />
+            </div>
+            
+            <div>
+              <Label>Gender</Label>
+              <RadioGroup 
+                value={userDetail.gender}
+                onValueChange={(value) => setUserDetail(prev => ({ ...prev, gender: value }))}
+                className="flex space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="male" id="male" />
+                  <Label htmlFor="male">Male</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="female" id="female" />
+                  <Label htmlFor="female">Female</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="other" id="other" />
+                  <Label htmlFor="other">Other</Label>
+                </div>
+              </RadioGroup>
+            </div>
+            
+            <div>
+              <Label htmlFor="occupation">Occupation</Label>
+              <Input
+                id="occupation"
+                name="occupation"
+                value={userDetail.occupation}
+                onChange={handleInputChange}
+                placeholder="Student, Professional, etc."
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="bio">Brief Bio</Label>
+              <Input
+                id="bio"
+                name="bio"
+                value={userDetail.bio}
+                onChange={handleInputChange}
+                placeholder="Tell potential roommates a bit about yourself"
+              />
+            </div>
+            
+            <div className="bg-blue-50 p-3 rounded-lg text-sm flex items-start">
+              <Info size={18} className="text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+              <p className="text-blue-700">
+                In the next steps, you'll answer questions about your lifestyle. You can choose which answers to make public on your profile. All answers will be used for compatibility matching even if not public.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    } else if (currentStep === totalSteps - 1) {
+      // Deal breakers step
+      return (
+        <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-fade-in">
+          <h2 className="font-semibold text-lg mb-2">Deal Breakers</h2>
+          <p className="text-gray-600 mb-4">
+            Add your absolute deal breakers that would make a potential roommate incompatible with you.
+          </p>
+          
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                value={newDealBreaker}
+                onChange={(e) => setNewDealBreaker(e.target.value)}
+                placeholder="e.g., Smoking, Loud music after 10pm, etc."
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddDealBreaker();
+                  }
+                }}
+              />
+              <Button 
+                type="button" 
+                onClick={handleAddDealBreaker}
+                className="bg-appPurple hover:bg-appPurple-dark"
+              >
+                <Plus size={16} />
+              </Button>
+            </div>
+            
+            {dealBreakers.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-500">Your deal breakers:</p>
+                <div className="flex flex-wrap gap-2">
+                  {dealBreakers.map((item, index) => (
+                    <div 
+                      key={index} 
+                      className="bg-gray-100 px-3 py-1 rounded-full flex items-center"
+                    >
+                      <span className="mr-2">{item}</span>
+                      <button 
+                        type="button" 
+                        className="text-gray-500 hover:text-red-500"
+                        onClick={() => handleRemoveDealBreaker(index)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <AlertTriangle size={24} className="mx-auto text-amber-500 mb-2" />
+                <p className="text-gray-600">
+                  No deal breakers added yet. These help us find better matches for you.
+                </p>
+              </div>
+            )}
+            
+            <div className="bg-amber-50 p-3 rounded-lg text-sm flex items-start">
+              <Info size={18} className="text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+              <p className="text-amber-700">
+                Deal breakers will be used to filter out incompatible roommates. They won't be visible on your public profile but will improve your matching quality.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      // Questionnaire steps
+      return (
+        <QuestionnaireCard
+          question={roommateQuestions[currentStep - 1]}
+          currentAnswer={
+            roommateAnswers.find(
+              a => a.questionId === roommateQuestions[currentStep - 1].id
+            )?.answer || null
+          }
+          isPublic={
+            roommateAnswers.find(
+              a => a.questionId === roommateQuestions[currentStep - 1].id
+            )?.isPublic ?? true
+          }
+          onAnswerSelected={handleAnswerSelected}
+          onPrivacyToggle={handlePrivacyToggle}
+        />
+      );
+    }
   };
   
   return (
@@ -143,103 +322,7 @@ const RoommateQuestionnaire = () => {
             ></div>
           </div>
           
-          {currentStep === 0 ? (
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-4 animate-fade-in">
-              <h2 className="font-semibold text-lg mb-4">Tell us about yourself</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={userDetail.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter your name"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="age">Age</Label>
-                  <Input
-                    id="age"
-                    name="age"
-                    type="number"
-                    value={userDetail.age}
-                    onChange={handleInputChange}
-                    placeholder="Enter your age"
-                  />
-                </div>
-                
-                <div>
-                  <Label>Gender</Label>
-                  <RadioGroup 
-                    value={userDetail.gender}
-                    onValueChange={(value) => setUserDetail(prev => ({ ...prev, gender: value }))}
-                    className="flex space-x-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="male" id="male" />
-                      <Label htmlFor="male">Male</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="female" id="female" />
-                      <Label htmlFor="female">Female</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="other" id="other" />
-                      <Label htmlFor="other">Other</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-                
-                <div>
-                  <Label htmlFor="occupation">Occupation</Label>
-                  <Input
-                    id="occupation"
-                    name="occupation"
-                    value={userDetail.occupation}
-                    onChange={handleInputChange}
-                    placeholder="Student, Professional, etc."
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="bio">Brief Bio</Label>
-                  <Input
-                    id="bio"
-                    name="bio"
-                    value={userDetail.bio}
-                    onChange={handleInputChange}
-                    placeholder="Tell potential roommates a bit about yourself"
-                  />
-                </div>
-                
-                <div className="bg-blue-50 p-3 rounded-lg text-sm flex items-start">
-                  <Info size={18} className="text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <p className="text-blue-700">
-                    In the next steps, you'll answer questions about your lifestyle. You can choose which answers to make public on your profile. All answers will be used for compatibility matching even if not public.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <QuestionnaireCard
-              question={roommateQuestions[currentStep - 1]}
-              currentAnswer={
-                roommateAnswers.find(
-                  a => a.questionId === roommateQuestions[currentStep - 1].id
-                )?.answer || null
-              }
-              isPublic={
-                roommateAnswers.find(
-                  a => a.questionId === roommateQuestions[currentStep - 1].id
-                )?.isPublic ?? true
-              }
-              onAnswerSelected={handleAnswerSelected}
-              onPrivacyToggle={handlePrivacyToggle}
-            />
-          )}
+          {renderCurrentStep()}
           
           <div className="flex justify-between mt-4">
             <Button

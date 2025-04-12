@@ -107,6 +107,7 @@ export interface RoommateProfile {
   occupation: string;
   lookingFor: 'room-and-roommate' | 'just-roommate';
   answers: QuestionnaireAnswer[];
+  dealBreakers: string[]; // New field for deal breakers
   bio: string;
   compatibilityScore?: number;
   sharedTraits?: string[];

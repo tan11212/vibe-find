@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { mockPGs, mockRoommates, roommateQuestions } from '@/data/mockData';
 import { PG, PGFilter, QuestionnaireAnswer, RoommateProfile, ChatMessage, RoommateMatch } from '@/types';
@@ -187,15 +186,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const score = calculateCompatibilityScore(profile.answers || [], roommate.answers);
         const sharedTraits = getSharedTraits(profile.answers || [], roommate.answers);
         
+        // Check for dealbreakers
+        let hasCompatibilityIssues = false;
+        if (profile.dealBreakers && roommate.answers) {
+          hasCompatibilityIssues = checkForDealBreakers(profile.dealBreakers, roommate.answers);
+        }
+        
         return {
           ...roommate,
-          compatibilityScore: score,
+          compatibilityScore: hasCompatibilityIssues ? Math.max(0, score - 40) : score, // Significantly reduce score if dealbreakers exist
           sharedTraits,
         };
       });
       
       setRoommates(updatedRoommates);
     }
+  };
+  
+  // Check if there are dealbreaker issues
+  const checkForDealBreakers = (dealBreakers: string[], roommateAnswers: QuestionnaireAnswer[]): boolean => {
+    if (!dealBreakers.length) return false;
+    
+    // This is a simplified implementation. In a real app, you'd have a more sophisticated matching algorithm
+    // For now, we'll just check if any dealbreaker keywords appear in the roommate's answers
+    for (const dealBreaker of dealBreakers) {
+      const lowerDealBreaker = dealBreaker.toLowerCase();
+      
+      // Check for common dealbreakers based on answers
+      for (const answer of roommateAnswers) {
+        const question = roommateQuestions.find(q => q.id === answer.questionId);
+        if (!question) continue;
+        
+        // Check smoking
+        if ((lowerDealBreaker.includes('smok') || lowerDealBreaker.includes('cigarette')) && 
+            question.text.toLowerCase().includes('smoke') && 
+            answer.answer !== 'no') {
+          return true;
+        }
+        
+        // Check noise/loud music
+        if ((lowerDealBreaker.includes('noise') || lowerDealBreaker.includes('loud') || lowerDealBreaker.includes('quiet')) && 
+            (question.text.toLowerCase().includes('noise') || question.text.toLowerCase().includes('music')) && 
+            (answer.answer.includes('loud') || answer.answer.includes('speaker'))) {
+          return true;
+        }
+        
+        // Check cleanliness
+        if ((lowerDealBreaker.includes('clean') || lowerDealBreaker.includes('tidy') || lowerDealBreaker.includes('mess')) && 
+            question.text.toLowerCase().includes('clean') && 
+            (answer.answer.includes('mess') || answer.answer.includes('not-into-cleaning'))) {
+          return true;
+        }
+        
+        // Check guests
+        if ((lowerDealBreaker.includes('guest') || lowerDealBreaker.includes('visit')) && 
+            question.text.toLowerCase().includes('guest') && 
+            answer.answer.includes('frequent')) {
+          return true;
+        }
+        
+        // Check alcohol
+        if ((lowerDealBreaker.includes('alcohol') || lowerDealBreaker.includes('drink')) && 
+            question.text.toLowerCase().includes('alcohol') && 
+            answer.answer !== 'no') {
+          return true;
+        }
+      }
+    }
+    
+    return false;
   };
   
   // Calculate compatibility score between two users
