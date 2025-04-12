@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -152,8 +153,8 @@ const PGListingForm: React.FC = () => {
       description: 'Your PG listing has been saved as a draft',
     });
     
-    // Navigate back to PG owner dashboard
-    navigate('/pg-owner-listing');
+    // Navigate back to the appropriate page
+    navigate('/');
   };
   
   const handleSubmit = (e: React.FormEvent) => {
@@ -182,8 +183,8 @@ const PGListingForm: React.FC = () => {
       description: 'Your PG listing has been created',
     });
     
-    // Navigate back to PG owner dashboard
-    navigate('/pg-owner-listing');
+    // Navigate back to the home page
+    navigate('/');
   };
   
   return (
@@ -194,7 +195,7 @@ const PGListingForm: React.FC = () => {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => navigate('/pg-owner-listing')}
+              onClick={() => navigate('/')}
             >
               <ArrowLeft size={16} className="mr-1" />
               Back

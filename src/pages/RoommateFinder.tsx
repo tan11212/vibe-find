@@ -29,9 +29,18 @@ const RoommateFinder = () => {
     <Layout>
       <div className="gradient-bg-pink min-h-screen">
         <div className="container px-4 py-4">
-          <div className="text-left mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Find Your Roommate</h1>
-            <p className="text-gray-600">Connect with compatible roommates</p>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Find Your Roommate</h1>
+              <p className="text-gray-600">Connect with compatible roommates</p>
+            </div>
+            <Button 
+              className="bg-appPurple hover:bg-appPurple-dark"
+              onClick={() => navigate('/pg-listing-form')}
+            >
+              <Plus size={16} className="mr-2" />
+              List PG
+            </Button>
           </div>
           
           <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
@@ -129,7 +138,7 @@ const RoommateFinder = () => {
                   </p>
                   <Button 
                     className="bg-appPurple hover:bg-appPurple-dark"
-                    onClick={() => navigate('/pg-owner-listing')}
+                    onClick={() => navigate('/pg-listing-form')}
                   >
                     <Plus size={16} className="mr-1" />
                     Create New Listing

@@ -14,6 +14,7 @@ import Favorites from "./pages/Favorites";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import PGOwnerListing from "./pages/PGOwnerListing";
+import PGListingForm from "./pages/PGListingForm";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/favorites" element={<Favorites />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/pg-owner-listing" element={<PGOwnerListing />} />
+            <Route path="/pg-listing-form" element={<PGListingForm />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

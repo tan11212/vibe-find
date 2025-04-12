@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { PGProvider, usePG } from './PGContext';
 import { RoommateProvider, useRoommate } from './RoommateContext';
 import { ChatProvider, useChat } from './ChatContext';
+import { SafetyProvider, useSafety } from './SafetyContext';
 
 // Create a combined context
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,7 +29,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           return (
             <ChatProvider userRoommateId={userRoommateId}>
-              {children}
+              <SafetyProvider>
+                {children}
+              </SafetyProvider>
             </ChatProvider>
           );
         }}
@@ -42,11 +45,13 @@ export const useApp = () => {
   const pgContext = usePG();
   const roommateContext = useRoommate();
   const chatContext = useChat();
+  const safetyContext = useSafety();
   
   // Combine all contexts into one
   return {
     ...pgContext,
     ...roommateContext,
     ...chatContext,
+    ...safetyContext,
   };
 };
