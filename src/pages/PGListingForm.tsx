@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useApp } from '@/context/AppContext';
 import { PGListing } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Building, MapPin, BedDouble, Users, IndianRupee, CheckCircle, ImagePlus, Trash2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft, Building, MapPin, BedDouble, Users, IndianRupee, CheckCircle, ImagePlus, Trash2, Loader2 } from 'lucide-react';
 
 const amenitiesList = [
   { id: 'wifi', name: 'WiFi', icon: '📶' },
@@ -31,10 +34,14 @@ const PGListingForm: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { createPGListing } = useApp();
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState<Partial<PGListing>>({
     name: '',
     address: '',
+    city: '',
+    state: '',
+    zip: '',
     gender: 'co-ed',
     description: '',
     totalBeds: 0,
@@ -44,8 +51,9 @@ const PGListingForm: React.FC = () => {
     status: 'draft',
   });
   
-  const [images, setImages] = useState<{ id: string; url: string }[]>([]);
+  const [images, setImages] = useState<{ id: string; file?: File; url: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -91,15 +99,29 @@ const PGListingForm: React.FC = () => {
     });
   };
   
-  const handleAddImage = () => {
-    // In a real app, this would open a file picker and upload the image
-    // For now, we'll just add a placeholder
-    const newImageId = `img-${Date.now()}`;
-    setImages(prev => [...prev, { id: newImageId, url: 'https://via.placeholder.com/300x200' }]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const newImages = Array.from(files).map(file => ({
+      id: uuidv4(),
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    
+    setImages(prev => [...prev, ...newImages]);
   };
   
   const handleRemoveImage = (id: string) => {
-    setImages(prev => prev.filter(img => img.id !== id));
+    setImages(prev => {
+      const filtered = prev.filter(img => img.id !== id);
+      // Revoke object URLs to prevent memory leaks
+      const imageToRemove = prev.find(img => img.id === id);
+      if (imageToRemove && !imageToRemove.file) {
+        URL.revokeObjectURL(imageToRemove.url);
+      }
+      return filtered;
+    });
   };
   
   const validateForm = (): boolean => {
@@ -111,6 +133,14 @@ const PGListingForm: React.FC = () => {
     
     if (!formData.address?.trim()) {
       newErrors.address = 'Address is required';
+    }
+    
+    if (!formData.city?.trim()) {
+      newErrors.city = 'City is required';
+    }
+    
+    if (!formData.state?.trim()) {
+      newErrors.state = 'State is required';
     }
     
     if (!formData.description?.trim()) {
@@ -138,26 +168,119 @@ const PGListingForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
   
-  const handleSaveDraft = () => {
-    // Add image URLs to the listing
-    const listingWithImages = {
-      ...formData,
-      images: images.map(img => img.url),
-      status: 'draft' as 'draft' | 'published' | 'archived',
-    };
-    
-    createPGListing(listingWithImages);
-    
-    toast({
-      title: 'Draft Saved',
-      description: 'Your PG listing has been saved as a draft',
-    });
-    
-    // Navigate back to the appropriate page
-    navigate('/');
+  const uploadImages = async (): Promise<string[]> => {
+    const uploadPromises = images
+      .filter(img => img.file) // Only upload new files
+      .map(async (img) => {
+        const file = img.file as File;
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${user?.id}/${uuidv4()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('pg_images')
+          .upload(filePath, file);
+          
+        if (uploadError) {
+          throw uploadError;
+        }
+        
+        const { data } = supabase.storage
+          .from('pg_images')
+          .getPublicUrl(filePath);
+          
+        return data.publicUrl;
+      });
+      
+    return Promise.all(uploadPromises);
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const saveListing = async (status: 'draft' | 'published'): Promise<void> => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to save a listing',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Upload images first
+      const uploadedImageUrls = await uploadImages();
+      
+      // Combine existing image URLs with new uploaded ones
+      const allImageUrls = [
+        ...images.filter(img => !img.file).map(img => img.url),
+        ...uploadedImageUrls
+      ];
+      
+      const listingData = {
+        owner_id: user.id,
+        name: formData.name,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip || null,
+        gender: formData.gender,
+        description: formData.description,
+        total_beds: formData.totalBeds,
+        available_beds: formData.availableBeds,
+        price: formData.price,
+        amenities: formData.amenities,
+        images: allImageUrls,
+        status: status,
+      };
+      
+      const { data, error } = await supabase
+        .from('pg_listings')
+        .insert([listingData])
+        .select();
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state too for immediate UI updates
+      if (data && data[0]) {
+        createPGListing({
+          ...formData,
+          id: data[0].id,
+          ownerId: user.id,
+          images: allImageUrls,
+          status: status,
+          createdAt: new Date(),
+        });
+      }
+      
+      toast({
+        title: status === 'published' ? 'Listing Published' : 'Draft Saved',
+        description: status === 'published' 
+          ? 'Your PG listing has been published' 
+          : 'Your PG listing has been saved as a draft',
+      });
+      
+      // Navigate back to the listing page
+      navigate('/pg-owner-listing');
+      
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save listing',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleSaveDraft = async () => {
+    // For drafts, we don't need to validate all fields
+    await saveListing('draft');
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -169,22 +292,7 @@ const PGListingForm: React.FC = () => {
       return;
     }
     
-    // Add image URLs to the listing
-    const listingWithImages = {
-      ...formData,
-      images: images.map(img => img.url),
-      status: 'published' as 'draft' | 'published' | 'archived',
-    };
-    
-    createPGListing(listingWithImages);
-    
-    toast({
-      title: 'Success',
-      description: 'Your PG listing has been created',
-    });
-    
-    // Navigate back to the home page
-    navigate('/');
+    await saveListing('published');
   };
   
   return (
@@ -195,7 +303,7 @@ const PGListingForm: React.FC = () => {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/pg-owner-listing')}
             >
               <ArrowLeft size={16} className="mr-1" />
               Back
@@ -231,10 +339,49 @@ const PGListingForm: React.FC = () => {
                   name="address"
                   value={formData.address}
                   onChange={handleInputChange}
-                  placeholder="Full address of your PG"
+                  placeholder="Street address of your PG"
                   className={errors.address ? 'border-red-500' : ''}
                 />
                 {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    placeholder="City"
+                    className={errors.city ? 'border-red-500' : ''}
+                  />
+                  {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
+                </div>
+                
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    placeholder="State"
+                    className={errors.state ? 'border-red-500' : ''}
+                  />
+                  {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state}</p>}
+                </div>
+                
+                <div>
+                  <Label htmlFor="zip">Zip Code</Label>
+                  <Input
+                    id="zip"
+                    name="zip"
+                    value={formData.zip}
+                    onChange={handleInputChange}
+                    placeholder="Zip Code"
+                  />
+                </div>
               </div>
               
               <div>
@@ -366,17 +513,19 @@ const PGListingForm: React.FC = () => {
                       </button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={handleAddImage}
-                    className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-400"
+                  <label
+                    className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-400 cursor-pointer"
                   >
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
                     <ImagePlus size={24} />
-                  </button>
+                  </label>
                 </div>
-                <p className="text-xs text-gray-500">
-                  In a real app, this would allow uploading actual images.
-                </p>
               </div>
             </div>
             
@@ -385,14 +534,17 @@ const PGListingForm: React.FC = () => {
                 type="button" 
                 variant="outline"
                 onClick={handleSaveDraft}
+                disabled={isLoading}
               >
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Save as Draft
               </Button>
               <Button 
                 type="submit"
                 className="bg-appPurple hover:bg-appPurple-dark"
+                disabled={isLoading}
               >
-                <CheckCircle size={16} className="mr-2" />
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle size={16} className="mr-2" />}
                 Publish Listing
               </Button>
             </div>
