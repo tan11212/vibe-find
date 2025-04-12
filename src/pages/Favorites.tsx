@@ -4,9 +4,11 @@ import Layout from '@/components/Layout';
 import PGCard from '@/components/PGCard';
 import { useApp } from '@/context/AppContext';
 import { Heart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Favorites = () => {
   const { pgs, toggleFavorite, followedPGs } = useApp();
+  const navigate = useNavigate();
   
   const favoritePGs = pgs.filter(pg => pg.isFavorite);
   const followedPGsList = pgs.filter(pg => followedPGs.includes(pg.id));
@@ -40,7 +42,8 @@ const Favorites = () => {
                   <PGCard 
                     key={pg.id} 
                     pg={pg} 
-                    onToggleFavorite={toggleFavorite}
+                    onToggleFavorite={() => toggleFavorite(pg.id)}
+                    onView={() => navigate(`/pg/${pg.id}`)}
                   />
                 ))}
               </div>
@@ -67,7 +70,8 @@ const Favorites = () => {
                   <PGCard 
                     key={pg.id} 
                     pg={pg} 
-                    onToggleFavorite={toggleFavorite}
+                    onToggleFavorite={() => toggleFavorite(pg.id)}
+                    onView={() => navigate(`/pg/${pg.id}`)}
                   />
                 ))}
               </div>
