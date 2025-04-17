@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { PGProvider, usePG } from './PGContext';
 import { RoommateProvider, useRoommate } from './RoommateContext';
 import { ChatProvider, useChat } from './ChatContext';
-import { SafetyProvider, useSafety } from './SafetyContext';
+
 
 // Create a combined context
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
