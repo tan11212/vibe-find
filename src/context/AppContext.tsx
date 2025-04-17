@@ -4,6 +4,7 @@ import { PGProvider, usePG } from './PGContext';
 import { RoommateProvider, useRoommate } from './RoommateContext';
 import { ChatProvider, useChat } from './ChatContext';
 import { SafetyProvider, useSafety } from './SafetyContext';
+import { AuthProvider } from './AuthContext';
 
 // Create a combined context
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -16,27 +17,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   
   return (
-    <PGProvider>
-      <RoommateProvider>
-        {(context) => {
-          // This is a render prop pattern to get the user ID from the Roommate context
-          const userRoommateId = context?.userRoommateProfile?.id;
-          
-          // If the ID changes, update our state
-          if (userRoommateId && userRoommateId !== userId) {
-            handleUserIdChange(userRoommateId);
-          }
-          
-          return (
-            <ChatProvider userRoommateId={userRoommateId}>
-              <SafetyProvider>
-                {children}
-              </SafetyProvider>
-            </ChatProvider>
-          );
-        }}
-      </RoommateProvider>
-    </PGProvider>
+    <AuthProvider>
+      <PGProvider>
+        <RoommateProvider>
+          {(context) => {
+            // This is a render prop pattern to get the user ID from the Roommate context
+            const userRoommateId = context?.userRoommateProfile?.id;
+            
+            // If the ID changes, update our state
+            if (userRoommateId && userRoommateId !== userId) {
+              handleUserIdChange(userRoommateId);
+            }
+            
+            return (
+              <ChatProvider userRoommateId={userRoommateId}>
+                <SafetyProvider>
+                  {children}
+                </SafetyProvider>
+              </ChatProvider>
+            );
+          }}
+        </RoommateProvider>
+      </PGProvider>
+    </AuthProvider>
   );
 };
 
