@@ -163,7 +163,8 @@ const PGFilters: React.FC<PGFiltersProps> = ({ currentFilters, onApplyFilters })
             <div>
               <h3 className="font-medium mb-2">Amenities</h3>
               <div className="grid grid-cols-2 gap-2">
-                {allAmenities.map(amenity => (
+                {(allAmenities ?? []).map(amenity => (
+
                   <Button 
                     key={amenity.id}
                     variant={tempFilters.amenities.includes(amenity.id) ? 'default' : 'outline'} 
