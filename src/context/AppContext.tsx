@@ -4,7 +4,6 @@ import { PGProvider, usePG } from './PGContext';
 import { RoommateProvider, useRoommate } from './RoommateContext';
 import { ChatProvider, useChat } from './ChatContext';
 
-
 // Create a combined context
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // We need to share the user profile ID with the ChatProvider
@@ -29,9 +28,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           return (
             <ChatProvider userRoommateId={userRoommateId}>
-              <SafetyProvider>
-                {children}
-              </SafetyProvider>
+              {children}
             </ChatProvider>
           );
         }}
@@ -45,13 +42,12 @@ export const useApp = () => {
   const pgContext = usePG();
   const roommateContext = useRoommate();
   const chatContext = useChat();
-  const safetyContext = useSafety();
   
   // Combine all contexts into one
   return {
     ...pgContext,
     ...roommateContext,
     ...chatContext,
-    ...safetyContext,
   };
 };
+

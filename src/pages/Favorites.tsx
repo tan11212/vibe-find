@@ -2,16 +2,15 @@
 import React from 'react';
 import Layout from '@/components/Layout';
 import PGCard from '@/components/PGCard';
-import { useApp } from '@/context/AppContext';
+import { usePG } from '@/context/PGContext';
 import { Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Favorites = () => {
-  const { pgs, toggleFavorite, followedPGs } = useApp();
+  const { listings, toggleFavorite } = usePG();
   const navigate = useNavigate();
   
-  const favoritePGs = pgs.filter(pg => pg.isFavorite);
-  const followedPGsList = pgs.filter(pg => followedPGs.includes(pg.id));
+  const favoritePGs = listings?.filter(pg => pg.isFavorite) || [];
   
   return (
     <Layout>
@@ -39,34 +38,6 @@ const Favorites = () => {
             ) : (
               <div>
                 {favoritePGs.map(pg => (
-                  <PGCard 
-                    key={pg.id} 
-                    pg={pg} 
-                    onToggleFavorite={() => toggleFavorite(pg.id)}
-                    onView={() => navigate(`/pg/${pg.id}`)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          
-          <div>
-            <h2 className="text-lg font-semibold mb-3 flex items-center">
-              <Heart size={18} className="mr-1 text-appPurple" />
-              Following for Alerts
-            </h2>
-            
-            {followedPGsList.length === 0 ? (
-              <div className="text-center py-8 bg-white rounded-xl shadow-lg">
-                <div className="text-4xl mb-2">🔔</div>
-                <h3 className="text-lg font-medium">Not following any PGs</h3>
-                <p className="text-gray-600 px-4">
-                  Follow PGs to get alerts when beds become available
-                </p>
-              </div>
-            ) : (
-              <div>
-                {followedPGsList.map(pg => (
                   <PGCard 
                     key={pg.id} 
                     pg={pg} 
