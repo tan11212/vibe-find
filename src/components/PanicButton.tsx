@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, LogIn } from 'lucide-react';
 import { useSafety } from '@/context/SafetyContext';
 import { useToast } from '@/hooks/use-toast';
 

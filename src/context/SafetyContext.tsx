@@ -4,6 +4,18 @@ import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: string;
+  isEmergencyContact: boolean;
+}
+
+interface DistressData {
+  isActive: boolean;
+}
+
 interface SafetyContextType {
   emergencyContacts: EmergencyContact[];
   addEmergencyContact: (contact: Omit<EmergencyContact, 'id'>) => Promise<void>;
@@ -12,17 +24,10 @@ interface SafetyContextType {
   isVoiceDetectionActive: boolean;
   safeWord: string;
   updateSafeWord: (word: string) => void;
-  triggerEmergencyProtocol: () => void;
-  isProcessingEmergency: boolean;
+  triggerDistressSignal: () => void;
+  cancelDistressSignal: () => void;
+  distressData: DistressData;
 }
-
-type EmergencyContact = {
-  id: string;
-  name: string;
-  phone: string;
-  relationship: string;
-  isEmergencyContact: boolean;
-};
 
 const defaultSafeWord = "help me";
 
@@ -33,7 +38,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
   const [isVoiceDetectionActive, setIsVoiceDetectionActive] = useState(false);
   const [safeWord, setSafeWord] = useState(defaultSafeWord);
-  const [isProcessingEmergency, setIsProcessingEmergency] = useState(false);
+  const [distressData, setDistressData] = useState<DistressData>({ isActive: false });
   
   const recognitionRef = useRef<any>(null);
   
@@ -49,7 +54,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Initialize voice recognition
   useEffect(() => {
     // Check if browser supports SpeechRecognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
@@ -61,7 +66,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log('Detected speech:', transcript);
         
         if (transcript.includes(safeWord.toLowerCase())) {
-          triggerEmergencyProtocol();
+          triggerDistressSignal();
         }
       };
       
@@ -81,24 +86,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [safeWord]);
   
-  // Start/stop voice recognition when active state changes
-  useEffect(() => {
-    if (isVoiceDetectionActive && recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-        toast.success(`Voice detection active. Listening for "${safeWord}"`);
-      } catch (error) {
-        console.error('Failed to start speech recognition:', error);
-      }
-    } else if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (error) {
-        console.error('Failed to stop speech recognition:', error);
-      }
-    }
-  }, [isVoiceDetectionActive, safeWord]);
-  
+  // Fetch emergency contacts
   const fetchEmergencyContacts = async () => {
     if (!user) return;
     
@@ -116,6 +104,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
+  // Add emergency contact
   const addEmergencyContact = async (contact: Omit<EmergencyContact, 'id'>) => {
     if (!user) return;
     
@@ -134,7 +123,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (error) throw error;
       
       if (data) {
-        setEmergencyContacts([...emergencyContacts, data[0]]);
+        setEmergencyContacts(prev => [...prev, data[0] as EmergencyContact]);
         toast.success('Emergency contact added!');
       }
     } catch (error) {
@@ -143,6 +132,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
+  // Remove emergency contact
   const removeEmergencyContact = async (id: string) => {
     if (!user) return;
     
@@ -155,7 +145,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
       if (error) throw error;
       
-      setEmergencyContacts(emergencyContacts.filter(contact => contact.id !== id));
+      setEmergencyContacts(prev => prev.filter(contact => contact.id !== id));
       toast.success('Emergency contact removed');
     } catch (error) {
       console.error('Error removing emergency contact:', error);
@@ -163,6 +153,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
+  // Voice detection toggle
   const toggleVoiceDetection = () => {
     const newState = !isVoiceDetectionActive;
     setIsVoiceDetectionActive(newState);
@@ -172,6 +163,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
+  // Request microphone permission
   const requestMicrophonePermission = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -182,6 +174,7 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
+  // Update safe word
   const updateSafeWord = (word: string) => {
     if (word && word.trim()) {
       setSafeWord(word.trim());
@@ -203,10 +196,9 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
   
-  const triggerEmergencyProtocol = () => {
-    if (isProcessingEmergency) return;
-    
-    setIsProcessingEmergency(true);
+  // Trigger distress signal
+  const triggerDistressSignal = () => {
+    setDistressData({ isActive: true });
     toast.error('EMERGENCY PROTOCOL ACTIVATED', {
       duration: 10000,
     });
@@ -220,17 +212,12 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('Emergency protocol activated');
     console.log('Location shared:', fakeLocation);
     console.log('Contacting emergency contacts:', emergencyContacts);
-    
-    // In a real implementation, we would:
-    // 1. Get actual user location
-    // 2. Send messages to emergency contacts
-    // 3. Start recording audio/video
-    // 4. Upload evidence to secure storage
-    
-    // Clear emergency state after 10 seconds
-    setTimeout(() => {
-      setIsProcessingEmergency(false);
-    }, 10000);
+  };
+  
+  // Cancel distress signal
+  const cancelDistressSignal = () => {
+    setDistressData({ isActive: false });
+    toast.success('Emergency mode cancelled');
   };
   
   return (
@@ -242,8 +229,9 @@ export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isVoiceDetectionActive,
       safeWord,
       updateSafeWord,
-      triggerEmergencyProtocol,
-      isProcessingEmergency
+      triggerDistressSignal,
+      cancelDistressSignal,
+      distressData
     }}>
       {children}
     </SafetyContext.Provider>
