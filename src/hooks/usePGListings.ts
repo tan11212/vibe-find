@@ -56,19 +56,13 @@ export const usePGListings = () => {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      let uploadProgress = 0;
-      
       const { error: uploadError, data } = await supabase.storage
         .from('pg_images')
         .upload(filePath, file, {
           upsert: true,
-          // Use onUploadProgress if available (newer versions of Supabase client)
-          ...(supabase.storage.from('pg_images').upload.length > 2 ? {
-            onUploadProgress: (progress: { loaded: number; total: number }) => {
-              uploadProgress = (progress.loaded / progress.total) * 100;
-              setUploadProgress(uploadProgress);
-            },
-          } : {})
+          onUploadProgress: (progress) => {
+            setUploadProgress((progress.loaded / progress.total) * 100);
+          },
         });
 
       if (uploadError) {
@@ -80,9 +74,6 @@ export const usePGListings = () => {
         .getPublicUrl(filePath);
 
       urls.push(publicUrl);
-      
-      // Set to 100% when each file is done
-      setUploadProgress(100);
     }
 
     return urls;
@@ -92,7 +83,7 @@ export const usePGListings = () => {
   const createPGListing = async (listing: Partial<PGListing>) => {
     const { data, error } = await supabase
       .from('pg_listings')
-      .insert([listing]) // Pass as an array with a single object
+      .insert([listing])
       .select()
       .single();
 
