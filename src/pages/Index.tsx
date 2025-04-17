@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -6,30 +5,21 @@ import PGCard from '@/components/PGCard';
 import PGFilters from '@/components/PGFilters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useApp } from '@/context/AppContext';
+import { usePG } from '@/context/PGContext';
 import { Search, Bookmark, Building, Plus } from 'lucide-react';
-import { PGFilter } from '@/types';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { filteredPGs, favorites, toggleFavorite, filters, updateFilters } = useApp();
+  const { listings, isLoadingListings, toggleFavorite } = usePG();
   const [searchQuery, setSearchQuery] = useState('');
   
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-  
-  const filteredResults = searchQuery
-    ? filteredPGs.filter(pg => 
+  const filteredResults = searchQuery && listings
+    ? listings.filter(pg => 
         pg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         pg.address.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : filteredPGs;
+    : listings;
 
-  const handleApplyFilters = (newFilters: PGFilter) => {
-    updateFilters(newFilters);
-  };
-  
   return (
     <Layout>
       <div className="container mx-auto px-4 py-4">
@@ -54,25 +44,27 @@ const Index = () => {
             placeholder="Search by name or location"
             className="pl-10 bg-white"
             value={searchQuery}
-            onChange={handleSearchChange}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         
-        <PGFilters 
-          currentFilters={filters} 
-          onApplyFilters={handleApplyFilters} 
-        />
+        <PGFilters />
         
         <div className="bg-white p-4 rounded-xl shadow mb-4">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold">Recommended PGs</h2>
+            <h2 className="text-lg font-semibold">Available PGs</h2>
             <Button variant="outline" size="sm" className="flex items-center text-xs">
               <Bookmark size={14} className="mr-1" />
-              Saved ({favorites.length})
+              Saved
             </Button>
           </div>
           
-          {filteredResults.length === 0 ? (
+          {isLoadingListings ? (
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-appPurple mx-auto"></div>
+              <p className="text-gray-500 mt-2">Loading PGs...</p>
+            </div>
+          ) : filteredResults?.length === 0 ? (
             <div className="text-center py-10">
               <div className="flex justify-center mb-2">
                 <Building size={40} className="text-gray-300" />
@@ -82,7 +74,7 @@ const Index = () => {
             </div>
           ) : (
             <div className="grid gap-4">
-              {filteredResults.map(pg => (
+              {filteredResults?.map(pg => (
                 <PGCard 
                   key={pg.id} 
                   pg={pg} 
