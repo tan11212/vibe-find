@@ -1,4 +1,3 @@
-
 // PG and Room Types
 export interface Amenity {
   id: string;
@@ -124,6 +123,9 @@ export interface PGListing {
   id: string;
   name: string;
   address: string;
+  city: string;
+  state: string;
+  zip?: string;
   gender: 'male' | 'female' | 'co-ed';
   description: string;
   totalBeds: number;
