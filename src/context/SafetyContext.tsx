@@ -1,237 +1,205 @@
 
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
-import { useAuth } from './AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 interface EmergencyContact {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   relationship: string;
-  isEmergencyContact: boolean;
+}
+
+interface SafeZone {
+  id: string;
+  name: string;
+  address: string;
+  isSafe: boolean;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+interface SafetySettings {
+  safeWord: string;
+  voiceRecognitionEnabled: boolean;
+  locationSharingEnabled: boolean;
+  autoRecordEnabled: boolean;
+  stealthModeEnabled: boolean;
+  offlineModeEnabled: boolean;
+  communityModeEnabled: boolean;
 }
 
 interface DistressData {
+  timestamp: Date;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  audioRecordingUrl?: string;
+  photoUrls?: string[];
   isActive: boolean;
 }
 
 interface SafetyContextType {
   emergencyContacts: EmergencyContact[];
-  addEmergencyContact: (contact: Omit<EmergencyContact, 'id'>) => Promise<void>;
-  removeEmergencyContact: (id: string) => Promise<void>;
-  toggleVoiceDetection: () => void;
-  isVoiceDetectionActive: boolean;
-  safeWord: string;
-  updateSafeWord: (word: string) => void;
+  safeZones: SafeZone[];
+  settings: SafetySettings;
+  distressData: DistressData | null;
+  addEmergencyContact: (contact: Omit<EmergencyContact, 'id'>) => void;
+  removeEmergencyContact: (id: string) => void;
+  addSafeZone: (zone: Omit<SafeZone, 'id'>) => void;
+  removeSafeZone: (id: string) => void;
+  updateSettings: (newSettings: Partial<SafetySettings>) => void;
   triggerDistressSignal: () => void;
   cancelDistressSignal: () => void;
-  distressData: DistressData;
 }
 
-const defaultSafeWord = "help me";
+const defaultSettings: SafetySettings = {
+  safeWord: "Help Me",
+  voiceRecognitionEnabled: false,
+  locationSharingEnabled: true,
+  autoRecordEnabled: true,
+  stealthModeEnabled: false,
+  offlineModeEnabled: true,
+  communityModeEnabled: false,
+};
 
 const SafetyContext = createContext<SafetyContextType | undefined>(undefined);
 
 export const SafetyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
-  const [isVoiceDetectionActive, setIsVoiceDetectionActive] = useState(false);
-  const [safeWord, setSafeWord] = useState(defaultSafeWord);
-  const [distressData, setDistressData] = useState<DistressData>({ isActive: false });
+  const [safeZones, setSafeZones] = useState<SafeZone[]>([]);
+  const [settings, setSettings] = useState<SafetySettings>(defaultSettings);
+  const [distressData, setDistressData] = useState<DistressData | null>(null);
   
-  const recognitionRef = useRef<any>(null);
-  
-  // Load emergency contacts when user changes
+  // Load data from localStorage
   useEffect(() => {
-    if (user) {
-      fetchEmergencyContacts();
-    } else {
-      setEmergencyContacts([]);
+    const savedContacts = localStorage.getItem('emergencyContacts');
+    if (savedContacts) {
+      setEmergencyContacts(JSON.parse(savedContacts));
     }
-  }, [user]);
+    
+    const savedZones = localStorage.getItem('safeZones');
+    if (savedZones) {
+      setSafeZones(JSON.parse(savedZones));
+    }
+    
+    const savedSettings = localStorage.getItem('safetySettings');
+    if (savedSettings) {
+      setSettings(JSON.parse(savedSettings));
+    }
+  }, []);
   
-  // Initialize voice recognition
+  // Save to localStorage when data changes
   useEffect(() => {
-    // Check if browser supports SpeechRecognition
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = false;
-      
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
-        console.log('Detected speech:', transcript);
-        
-        if (transcript.includes(safeWord.toLowerCase())) {
-          triggerDistressSignal();
-        }
-      };
-      
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          toast.error('Microphone access denied. Voice detection disabled.');
-          setIsVoiceDetectionActive(false);
-        }
-      };
-    }
-    
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [safeWord]);
+    localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+  }, [emergencyContacts]);
   
-  // Fetch emergency contacts
-  const fetchEmergencyContacts = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('emergency_contacts')
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
-      
-      setEmergencyContacts(data || []);
-    } catch (error) {
-      console.error('Error fetching emergency contacts:', error);
-    }
-  };
+  useEffect(() => {
+    localStorage.setItem('safeZones', JSON.stringify(safeZones));
+  }, [safeZones]);
+  
+  useEffect(() => {
+    localStorage.setItem('safetySettings', JSON.stringify(settings));
+  }, [settings]);
   
   // Add emergency contact
-  const addEmergencyContact = async (contact: Omit<EmergencyContact, 'id'>) => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('emergency_contacts')
-        .insert({
-          user_id: user.id,
-          name: contact.name,
-          phone: contact.phone,
-          relationship: contact.relationship,
-          is_emergency_contact: contact.isEmergencyContact
-        })
-        .select();
-        
-      if (error) throw error;
-      
-      if (data) {
-        setEmergencyContacts(prev => [...prev, data[0] as EmergencyContact]);
-        toast.success('Emergency contact added!');
-      }
-    } catch (error) {
-      console.error('Error adding emergency contact:', error);
-      toast.error('Failed to add emergency contact');
-    }
+  const addEmergencyContact = (contact: Omit<EmergencyContact, 'id'>) => {
+    const newContact = {
+      id: `contact-${Date.now()}`,
+      ...contact
+    };
+    setEmergencyContacts(prev => [...prev, newContact]);
   };
   
   // Remove emergency contact
-  const removeEmergencyContact = async (id: string) => {
-    if (!user) return;
-    
-    try {
-      const { error } = await supabase
-        .from('emergency_contacts')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
-      
-      setEmergencyContacts(prev => prev.filter(contact => contact.id !== id));
-      toast.success('Emergency contact removed');
-    } catch (error) {
-      console.error('Error removing emergency contact:', error);
-      toast.error('Failed to remove emergency contact');
-    }
+  const removeEmergencyContact = (id: string) => {
+    setEmergencyContacts(prev => prev.filter(contact => contact.id !== id));
   };
   
-  // Voice detection toggle
-  const toggleVoiceDetection = () => {
-    const newState = !isVoiceDetectionActive;
-    setIsVoiceDetectionActive(newState);
-    
-    if (newState) {
-      requestMicrophonePermission();
-    }
+  // Add safe zone
+  const addSafeZone = (zone: Omit<SafeZone, 'id'>) => {
+    const newZone = {
+      id: `zone-${Date.now()}`,
+      ...zone
+    };
+    setSafeZones(prev => [...prev, newZone]);
   };
   
-  // Request microphone permission
-  const requestMicrophonePermission = async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (error) {
-      console.error('Microphone permission denied:', error);
-      toast.error('Microphone access denied. Voice detection disabled.');
-      setIsVoiceDetectionActive(false);
-    }
+  // Remove safe zone
+  const removeSafeZone = (id: string) => {
+    setSafeZones(prev => prev.filter(zone => zone.id !== id));
   };
   
-  // Update safe word
-  const updateSafeWord = (word: string) => {
-    if (word && word.trim()) {
-      setSafeWord(word.trim());
-      
-      // Restart recognition with new safe word if active
-      if (isVoiceDetectionActive && recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-          setTimeout(() => {
-            if (recognitionRef.current && isVoiceDetectionActive) {
-              recognitionRef.current.start();
-              toast.success(`Voice detection updated. Now listening for "${word.trim()}"`);
-            }
-          }, 100);
-        } catch (error) {
-          console.error('Error restarting speech recognition:', error);
-        }
-      }
-    }
+  // Update settings
+  const updateSettings = (newSettings: Partial<SafetySettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
   };
   
   // Trigger distress signal
   const triggerDistressSignal = () => {
-    setDistressData({ isActive: true });
-    toast.error('EMERGENCY PROTOCOL ACTIVATED', {
-      duration: 10000,
-    });
-    
-    // Simulate sharing location
-    const fakeLocation = {
-      latitude: 28.6139,
-      longitude: 77.2090,
+    // Create new distress data
+    const newDistressData: DistressData = {
+      timestamp: new Date(),
+      isActive: true,
     };
     
-    console.log('Emergency protocol activated');
-    console.log('Location shared:', fakeLocation);
-    console.log('Contacting emergency contacts:', emergencyContacts);
+    // Get current location if available and enabled
+    if (settings.locationSharingEnabled && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const updatedData = {
+            ...newDistressData,
+            location: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            }
+          };
+          setDistressData(updatedData);
+          
+          // In a real app, this would also send the distress signal to emergency contacts
+          console.log("Distress signal sent with location", updatedData);
+        },
+        () => {
+          // If geolocation fails, still set distress data without location
+          setDistressData(newDistressData);
+          console.log("Distress signal sent without location", newDistressData);
+        }
+      );
+    } else {
+      // If location sharing is disabled or not available
+      setDistressData(newDistressData);
+      console.log("Distress signal sent without location", newDistressData);
+    }
+    
+    // In a real app, this would start recording audio, taking photos, etc.
   };
   
   // Cancel distress signal
   const cancelDistressSignal = () => {
-    setDistressData({ isActive: false });
-    toast.success('Emergency mode cancelled');
+    if (distressData) {
+      setDistressData({
+        ...distressData,
+        isActive: false
+      });
+      console.log("Distress signal cancelled");
+    }
   };
   
   return (
     <SafetyContext.Provider value={{
       emergencyContacts,
+      safeZones,
+      settings,
+      distressData,
       addEmergencyContact,
       removeEmergencyContact,
-      toggleVoiceDetection,
-      isVoiceDetectionActive,
-      safeWord,
-      updateSafeWord,
+      addSafeZone,
+      removeSafeZone,
+      updateSettings,
       triggerDistressSignal,
-      cancelDistressSignal,
-      distressData
+      cancelDistressSignal
     }}>
       {children}
     </SafetyContext.Provider>
