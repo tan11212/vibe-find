@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { mockPGs } from '@/data/mockData';
 import { PG, PGFilter, PGListing } from '@/types';
@@ -143,20 +144,17 @@ export const PGProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // Create a new PG listing
   const createPGListing = (listing: Partial<PGListing>) => {
     const newListing: PGListing = {
-      id: listing.id || `pg-${Date.now()}`,
+      id: `pg-${Date.now()}`,
       name: listing.name || 'Untitled PG',
       address: listing.address || '',
-      city: listing.city || '',
-      state: listing.state || '',
-      zip: listing.zip || '',
       gender: listing.gender || 'co-ed',
       description: listing.description || '',
       totalBeds: listing.totalBeds || 0,
       availableBeds: listing.availableBeds || 0,
       price: listing.price || 0,
       amenities: listing.amenities || [],
-      ownerId: listing.ownerId || 'current-user',
-      createdAt: listing.createdAt || new Date(),
+      ownerId: 'current-user', // In a real app, this would be the current user's ID
+      createdAt: new Date(),
       location: listing.location,
       images: listing.images || [],
       status: listing.status as 'draft' | 'published' | 'archived' || 'draft',
