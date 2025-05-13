@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -7,11 +8,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePG } from '@/context/PGContext';
 import { Search, Bookmark, Building, Plus } from 'lucide-react';
+import { PGFilter } from '@/types';
 
 const Index = () => {
   const navigate = useNavigate();
   const { listings, isLoadingListings, toggleFavorite } = usePG();
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<PGFilter>({
+    price: { min: 5000, max: 20000 },
+    gender: null,
+    amenities: [],
+    availability: null
+  });
+  
+  // Apply filters to the listings
+  const applyFilters = (newFilters: PGFilter) => {
+    setFilters(newFilters);
+    // Note: Actual filtering happens in the filteredResults calculation
+  };
   
   const filteredResults = searchQuery && listings
     ? listings.filter(pg => 
@@ -48,7 +62,10 @@ const Index = () => {
           />
         </div>
         
-        <PGFilters />
+        <PGFilters 
+          currentFilters={filters}
+          onApplyFilters={applyFilters}
+        />
         
         <div className="bg-white p-4 rounded-xl shadow mb-4">
           <div className="flex justify-between items-center mb-2">
@@ -77,7 +94,26 @@ const Index = () => {
               {filteredResults?.map(pg => (
                 <PGCard 
                   key={pg.id} 
-                  pg={pg} 
+                  pg={{
+                    id: pg.id,
+                    name: pg.name,
+                    address: pg.address,
+                    location: {
+                      lat: pg.latitude || 0,
+                      lng: pg.longitude || 0
+                    },
+                    gender: pg.gender as 'male' | 'female' | 'co-ed',
+                    rooms: [],
+                    totalBeds: pg.total_beds,
+                    availableBeds: pg.available_beds,
+                    amenities: pg.amenities || [],
+                    nearbyPlaces: [],
+                    images: pg.images || [],
+                    description: pg.description || "",
+                    rating: 0,
+                    reviews: 0,
+                    isFavorite: (pg.favorites && pg.favorites.length > 0) || false
+                  }}
                   onToggleFavorite={() => toggleFavorite(pg.id)}
                   onView={() => navigate(`/pg/${pg.id}`)}
                 />

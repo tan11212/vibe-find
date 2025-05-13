@@ -64,6 +64,21 @@ const PGFilters: React.FC<PGFiltersProps> = ({ currentFilters, onApplyFilters })
     onApplyFilters(defaultFilters);
   };
   
+  // Count active filters safely
+  const countActiveFilters = () => {
+    let count = 0;
+    if (tempFilters.gender) count++;
+    if (tempFilters.availability) count++;
+    if (tempFilters.amenities && tempFilters.amenities.length > 0) count += tempFilters.amenities.length;
+    
+    // Only count price if it's different from the default range
+    if (tempFilters.price && (tempFilters.price.min !== 5000 || tempFilters.price.max !== 20000)) {
+      count++;
+    }
+    
+    return count;
+  };
+  
   return (
     <div className="mb-4">
       <Sheet>
@@ -74,7 +89,7 @@ const PGFilters: React.FC<PGFiltersProps> = ({ currentFilters, onApplyFilters })
               Filters
             </span>
             <span className="bg-appPurple text-white text-xs rounded-full px-2 py-0.5">
-              {Object.values(currentFilters).flat().filter(Boolean).length}
+              {countActiveFilters()}
             </span>
           </Button>
         </SheetTrigger>
@@ -164,7 +179,6 @@ const PGFilters: React.FC<PGFiltersProps> = ({ currentFilters, onApplyFilters })
               <h3 className="font-medium mb-2">Amenities</h3>
               <div className="grid grid-cols-2 gap-2">
                 {(allAmenities ?? []).map(amenity => (
-
                   <Button 
                     key={amenity.id}
                     variant={tempFilters.amenities.includes(amenity.id) ? 'default' : 'outline'} 
